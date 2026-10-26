@@ -272,15 +272,23 @@ class PackageBuilder:
 
     def build(self, job: Job, source: Path, output_dir: Path, config: ProductConfig) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
-        before = {p.resolve(): (p.stat().st_mtime_ns, p.stat().st_size)
-                  for p in self._candidates(source, config) if p.is_file()}
         if config.build_kind == "GODOT_WINDOWS":
-            self._build_godot(source, output_dir)
+            # The Factory stores each game under products/<slug>, not at repo root.
+            # Never export another product or select an unrelated EXE as evidence.
+            project_root = source / "products" / job.slug
+            if not project_root.is_dir() or project_root.is_symlink():
+                raise HoldError("Pinned 3D product directory is missing or symlinked")
+            if not project_root.resolve().is_relative_to(source.resolve()):
+                raise HoldError("3D product path escapes the pinned Factory checkout")
+            self._build_godot(project_root, output_dir)
+            candidates = self._candidates(output_dir, config)
         else:
+            before = {p.resolve(): (p.stat().st_mtime_ns, p.stat().st_size)
+                      for p in self._candidates(source, config) if p.is_file()}
             self._build_windows(source)
-        candidates = [p for p in self._candidates(source, config) if p.is_file() and
-                      before.get(p.resolve()) != (p.stat().st_mtime_ns, p.stat().st_size)]
-        candidates.extend(self._candidates(output_dir, config))
+            candidates = [p for p in self._candidates(source, config) if p.is_file() and
+                          before.get(p.resolve()) != (p.stat().st_mtime_ns, p.stat().st_size)]
+            candidates.extend(self._candidates(output_dir, config))
         unique = sorted({p.resolve() for p in candidates if p.is_file()}, key=lambda p: p.stat().st_mtime)
         if not unique:
             raise HoldError("Build completed without a configured EXE/MSIX candidate")
@@ -306,6 +314,8 @@ class PackageBuilder:
 
     def _build_godot(self, source: Path, output_dir: Path) -> None:
         project, presets = source / "project.godot", source / "export_presets.cfg"
+        if project.is_symlink() or presets.is_symlink():
+            raise HoldError("Godot project or export preset is symlinked")
         if not project.is_file() or not presets.is_file():
             raise HoldError("Godot project.godot/export_presets.cfg is incomplete")
         if project.stat().st_size > 128_000 or b"run/main_scene" not in project.read_bytes():
