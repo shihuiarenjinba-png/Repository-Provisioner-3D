@@ -15,6 +15,9 @@
 - 資料生成時の実装HEAD: `5f24d054af28a8d76f66894ad815b4a4bc94e658`
 - コミット: `88896a2 docs: redirect...`、`5f24d05 feat: implement package identity round-trip provisioner`
 - Draft PR: https://github.com/shihuiarenjinba-png/Repository-Provisioner-3D/pull/1
+- CI検証済みHEAD: `ab5687189eeeb329063d52b15ff18d086c8f7e17`
+- GitHub Actions: SUCCESS — https://github.com/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/40382381684
+- Provisioner作業ブランチpush: 成功（非force）。
 - 差分: Package+Identity CLI、共通Schema、SHA固定取得、Godot Windows export/専用QA、MSIX/署名/PFN/SID解析、型別台帳・排他、公式Identity照合、GitHub CAS返却、CI、テスト。資料更新commit自体のSHAはDraft PRの最新HEADを正とする。
 
 ## テスト情報
@@ -22,7 +25,7 @@
 - 自動テスト: 46件 / PASS 46 / FAIL 0 / SKIP 0
 - Python compile: PASS
 - DRY_RUN: PASS。build、Partner Center、GitHub writeは0回。
-- 実GitHub書込: 未実施。commit SHAなし。
+- 実Factory Identity書込: 未実施。Factory側commit SHAなし。
 - 実Godot Windows export/MSIX: 未実施。モックMSIX解析のみPASS。
 - Partner Center公式ID: 未取得。Store ID推測機能はない。
 - 作成・削除したテストリポジトリ: なし。
@@ -57,7 +60,7 @@ python provisioner.py --input job.json --output result.json `
 
 ## HOLD項目
 
-1. `gh auth status`で保存済みGitHub token失効を確認。push/実返却未確認。
+1. Git credentialによるProvisioner pushは成功したが、`gh auth status`のtokenは失効中。Factory Identity API書込権限は未確認。
 2. 承認済み実Factory job、Godot 4実行環境、完成済みexport preset、実MSIXが未提供。
 3. 認証済みPartner Centerでの公式Identity確認が未実施。
 4. Factory→Provisioner→Windows-all-autoのE2EはChatGPT側の別工程。
