@@ -1,0 +1,13 @@
+.provisioner-state/
+.provisioner-work/
+__pycache__/
+*.pyc
+.pytest_cache/
+test-results/
+.test-tmp/
+*.msix
+*.appx
+*.exe
+*.pfx
+*.cer
+official-identity*.json
