@@ -65,7 +65,7 @@ class FakeAPI:
         if "/export_presets.cfg" in endpoint:
             return {"encoding": "base64",
                     "content": base64.b64encode(
-                        b'[preset.0]\\nname="Windows Desktop"\\nplatform="Windows Desktop"\\n'
+                        b'[preset.0]\nname="Windows Desktop"\nplatform="Windows Desktop"\n'
                     ).decode()}
         if "/approved-identity.json" in endpoint:
             return self.prior
