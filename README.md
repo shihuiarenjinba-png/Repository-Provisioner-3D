@@ -17,4 +17,4 @@ python provisioner.py --input job.json --output result.json `
   --official-identity C:\secure\partner-center-evidence.json --apply
 ```
 
-返却先は `shihuiarenjinba-png/3d-game-factory` の `codex/3d-factory-bootstrap-20261026`、`products/<slug>/store/approved-identity.json` に固定されています。入力・出力契約は `schemas/`、運用とHOLD項目は `docs/LOCAL_PROVISIONER_HANDOFF.md` を参照してください。
+返却先は `shihuiarenjinba-png/3d-game-factory` の `codex/3d-provisioner-job-contract-20261027`、`products/<slug>/store/approved-identity.json` に固定されています。入力・出力契約は `schemas/`、運用とHOLD項目は `docs/LOCAL_PROVISIONER_HANDOFF.md` を参照してください。

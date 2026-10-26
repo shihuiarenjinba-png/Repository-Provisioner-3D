@@ -505,7 +505,13 @@ class GitHubReturnClient:
         existing = self.api(base + "contents/" + target_path + "?ref=" + quote(config.source_branch, safe=""), allow_missing=True)
         if existing is not None:
             if self._existing_matches(existing, official):
-                return {**proposal, "status": "EXISTING_VERIFIED", "commit_sha": existing.get("sha")}
+                # GitHub Contents API 'sha' is a *blob* SHA, not a commit SHA.
+                # Recheck the branch because no atomic mutation guards this read.
+                latest_ref = self.api(base + "git/ref/heads/" + config.source_branch)
+                if (not isinstance(latest_ref, dict)
+                        or latest_ref.get("object", {}).get("sha") != job.source_sha):
+                    raise ConflictError("Factory HEAD changed while verifying existing identity")
+                return {**proposal, "status": "EXISTING_VERIFIED", "commit_sha": job.source_sha}
             raise ConflictError("approved-identity.json already exists and will not be overwritten")
         approved = {"reviewed": True, "source": "partner_center", "store_id": official["store_id"],
                     "name": official["name"], "publisher": official["publisher"], "version": official["version"],
@@ -560,6 +566,13 @@ class GitHubReturnClient:
         try:
             content = json.loads(base64.b64decode(existing["content"], validate=True))
         except Exception:
+            return False
+        # Never treat a matching Store ID alone as proof of operator review.
+        # These fields are written by this client when an identity is approved.
+        if (content.get("reviewed") is not True
+                or content.get("source") != "partner_center"
+                or content.get("verified_by") != official.get("authenticated_account")
+                or content.get("evidence_url") != official.get("official_evidence_url")):
             return False
         return all(content.get(key) == official.get(key) for key in ("store_id", "name", "publisher", "version"))
 
