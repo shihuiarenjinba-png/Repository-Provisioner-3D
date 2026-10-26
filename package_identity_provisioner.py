@@ -328,8 +328,19 @@ class PackageBuilder:
             raise HoldError("Godot executable is not configured (GODOT_EXE)")
         target = output_dir / "candidate.exe"
         self._run([executable, "--headless", "--path", str(source), "--export-release", "Windows Desktop", str(target)], source, 1800)
-        if not target.is_file():
-            raise HoldError("Godot Windows export produced no executable")
+        if target.is_symlink() or not target.is_file() or target.stat().st_size == 0:
+            raise HoldError("Godot Windows export produced no nonempty executable")
+        # Godot's Windows Desktop export may place game data in a separate
+        # candidate.pck. Accepting only candidate.exe silently loses resources
+        # when binary_format/embed_pck=false.
+        try:
+            preset_text = presets.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeError) as exc:
+            raise HoldError("Cannot read Godot Windows export preset") from exc
+        if re.search(r"(?m)^\s*binary_format/embed_pck\s*=\s*false\s*$", preset_text):
+            pck = target.with_suffix(".pck")
+            if pck.is_symlink() or not pck.is_file() or pck.stat().st_size == 0:
+                raise HoldError("Godot Windows export omitted required candidate.pck payload")
 
     @staticmethod
     def _run(command: list[str], cwd: Path, timeout: int) -> None:
