@@ -214,7 +214,7 @@ class GitHubReturnTests(unittest.TestCase):
             return {"encoding": "base64", "content": base64.b64encode(b"run/main_scene=x").decode()}
         if "/export_presets.cfg" in endpoint:
             return {"encoding": "base64", "content": base64.b64encode(
-                b'[preset.0]\\nname="Windows Desktop"\\nplatform="Windows Desktop"\\n').decode()}
+                b'[preset.0]\nname="Windows Desktop"\nplatform="Windows Desktop"\n').decode()}
         if "/approved-identity.json" in endpoint:
             return None
         if endpoint == "graphql":
