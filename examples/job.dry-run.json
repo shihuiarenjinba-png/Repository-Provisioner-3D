@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "request_id": "example-game-3d-dry-run-0001",
+  "product_type": "GAME_3D",
+  "source_factory": "3d-game-factory",
+  "source_repository": "shihuiarenjinba-png/3d-game-factory",
+  "source_branch": "codex/3d-factory-bootstrap-20261026",
+  "source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "slug": "example-3d-game",
+  "display_name": "Example 3D Game",
+  "target_owner": "shihuiarenjinba-png",
+  "dry_run": true,
+  "requested_actions": ["BUILD_WINDOWS", "INSPECT_PACKAGE", "LOOKUP_OFFICIAL_IDENTITY", "PROPOSE_GITHUB_RETURN"]
+}

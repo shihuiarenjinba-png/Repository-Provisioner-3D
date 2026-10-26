@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shihuiarenjinba-png/repository-provisioner-contract/result-v1.0.schema.json",
+  "title": "Local Package Identity Result v1.0",
+  "type": "object",
+  "required": ["schema_version", "request_id", "product_type", "status", "package", "official_identity", "github_return", "errors"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "request_id": {"type": ["string", "null"]},
+    "product_type": {"type": ["string", "null"]},
+    "status": {"enum": ["COMPLETED", "DRY_RUN", "HOLD", "CONFLICT", "FAILED", "RETRYABLE_FAILURE"]},
+    "source_sha": {"type": ["string", "null"]},
+    "package": {"type": "object"},
+    "official_identity": {"type": "object"},
+    "github_return": {"type": "object"},
+    "windows_all_auto_record": {"type": ["object", "null"]},
+    "errors": {"type": "array", "items": {"type": "string"}},
+    "next_stage": {"type": ["string", "null"]}
+  }
+}

@@ -1,4 +1,4 @@
-name: Repository name safety CI
+name: Package and Identity Provisioner CI
 on:
   pull_request:
   workflow_dispatch:
@@ -6,11 +6,14 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - run: python -m unittest discover -s tests -v
-      - run: python -m py_compile provisioner.py
+      - run: python -m py_compile provisioner.py package_identity_provisioner.py

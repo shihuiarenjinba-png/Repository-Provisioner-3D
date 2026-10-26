@@ -1,0 +1,13 @@
+{
+  "request_id": "replace-with-real-request-id",
+  "product_type": "GAME_3D",
+  "slug": "replace-with-real-slug",
+  "source_sha": "replace-with-real-40-character-source-sha",
+  "authenticated_account": "replace-with-authenticated-operator-id",
+  "verified_at": "replace-with-UTC-timestamp",
+  "official_evidence_url": "https://partner.microsoft.com/replace-with-real-product-page",
+  "store_id": "REPLACE01",
+  "name": "Replace.With.Real.Identity",
+  "publisher": "CN=REPLACE WITH REAL PUBLISHER",
+  "version": "1.0.0.0"
+}

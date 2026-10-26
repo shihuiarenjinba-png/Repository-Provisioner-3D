@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shihuiarenjinba-png/repository-provisioner-contract/job-v1.0.schema.json",
+  "title": "Local Package Identity Job v1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "product_type", "source_factory", "source_repository", "source_branch", "source_sha", "slug", "display_name", "target_owner", "dry_run", "requested_actions"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "request_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{3,127}$"},
+    "product_type": {"enum": ["APP", "GAME", "GAME_3D"]},
+    "source_factory": {"type": "string", "minLength": 1, "maxLength": 100},
+    "source_repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "source_branch": {"type": "string", "minLength": 1, "maxLength": 255},
+    "source_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "slug": {"type": "string", "pattern": "^[a-z][a-z0-9-]{3,39}$"},
+    "display_name": {"type": "string", "minLength": 1, "maxLength": 100},
+    "target_owner": {"type": "string", "minLength": 1, "maxLength": 100},
+    "dry_run": {"type": "boolean"},
+    "requested_actions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["BUILD_WINDOWS", "INSPECT_PACKAGE", "LOOKUP_OFFICIAL_IDENTITY", "PROPOSE_GITHUB_RETURN"]}}
+  }
+}

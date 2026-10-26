@@ -1,5 +1,9 @@
 {
-  "kind": "3d-game",
-  "owner": "shihuiarenjinba-png",
-  "create_enabled": false
+  "product_type": "GAME_3D",
+  "source_factory": "3d-game-factory",
+  "source_repository": "shihuiarenjinba-png/3d-game-factory",
+  "source_branch": "codex/3d-factory-bootstrap-20261026",
+  "target_owner": "shihuiarenjinba-png",
+  "build_kind": "GODOT_WINDOWS",
+  "output_patterns": ["**/*.msix", "**/*.appx", "**/*.exe"]
 }
