@@ -545,9 +545,9 @@ class GitHubReturnClient:
                 preset_text = preset_bytes.decode("utf-8")
             except UnicodeDecodeError as exc:
                 raise ConflictError("Pinned 3D Windows export preset is not UTF-8") from exc
-            sections = re.split(r"(?m)^\\[preset\\.\\d+\\]\\s*$", preset_text)
+            sections = re.split(r"(?m)^\[preset\.\d+\]\s*$", preset_text)
             valid_preset = any(
-                re.search(r'(?m)^\\s*platform\\s*=\\s*"Windows Desktop"\\s*
+                re.search(r'(?m)^\s*platform\s*=\s*"Windows Desktop"\s*
             item = self.api(base + f"contents/products/{job.slug}/manifest.json?ref=" + branch)
             try:
                 manifest = json.loads(self._decode_content(item, 16_000))
@@ -746,7 +746,7 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":
     raise SystemExit(main())
 , section)
-                and re.search(r'(?m)^\\s*name\\s*=\\s*"Windows Desktop"\\s*
+                and re.search(r'(?m)^\s*name\s*=\s*"Windows Desktop"\s*
             item = self.api(base + f"contents/products/{job.slug}/manifest.json?ref=" + branch)
             try:
                 manifest = json.loads(self._decode_content(item, 16_000))
