@@ -22,7 +22,7 @@
 
 ## テスト情報
 
-- 自動テスト: 48件 / PASS 48 / FAIL 0 / SKIP 0
+- 自動テスト: 49件 / PASS 49 / FAIL 0 / SKIP 0
 - Python compile: PASS
 - DRY_RUN: PASS。build、Partner Center、GitHub writeは0回。
 - 実Factory Identity書込: 未実施。Factory側commit SHAなし。

@@ -227,7 +227,14 @@ class Ledger:
                 handle.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(temporary, path)
+            for attempt in range(5):
+                try:
+                    os.replace(temporary, path)
+                    break
+                except PermissionError:
+                    if attempt == 4:
+                        raise
+                    time.sleep(0.025 * (2 ** attempt))
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)

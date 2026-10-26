@@ -392,6 +392,27 @@ class FailureClassificationTests(unittest.TestCase):
             ledger.write("req", {"value": 1})
             self.assertEqual(ledger.read("req"), {"value": 1})
 
+    def test_ledger_retries_transient_windows_replace_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = Ledger(Path(tmp))
+            real_replace = os.replace
+            attempts = 0
+
+            def transient_lock(source, destination):
+                nonlocal attempts
+                attempts += 1
+                if attempts == 1:
+                    raise PermissionError("transient file lock")
+                return real_replace(source, destination)
+
+            with patch("package_identity_provisioner.os.replace", side_effect=transient_lock), \
+                    patch("package_identity_provisioner.time.sleep") as sleep:
+                ledger.write("req", {"value": 1})
+
+            self.assertEqual(attempts, 2)
+            sleep.assert_called_once_with(0.025)
+            self.assertEqual(ledger.read("req"), {"value": 1})
+
 
 if __name__ == "__main__":
     unittest.main()
