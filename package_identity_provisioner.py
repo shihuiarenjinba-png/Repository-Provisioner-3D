@@ -603,9 +603,22 @@ class Provisioner:
         try:
             with self.ledger.lock(job.request_id):
                 previous = self.ledger.read(job.request_id)
-                if previous and previous.get("fingerprint") != job.fingerprint():
-                    return self._record_error(job, ConflictError("request_id was previously used for different input"), started, previous)
-                if previous and previous.get("response", {}).get("status") in FINAL_STATUSES:
+                # A reviewed dry-run may become live without changing the request ID.
+                # Compare every other field, including Factory SHA, product and actions.
+                # Preserve the original ledger on conflicts: a mismatched retry must
+                # never replace the binding of request_id to its original product.
+                prior_status = (previous or {}).get("response", {}).get("status")
+                promoted = bool(
+                    previous and prior_status == "DRY_RUN" and not job.dry_run
+                    and previous.get("fingerprint")
+                    == canonical_hash({**asdict(job), "dry_run": True})
+                )
+                if previous and previous.get("fingerprint") != job.fingerprint() and not promoted:
+                    response = self._base_response(job, "CONFLICT", started)
+                    response["errors"] = ["request_id was previously used for different input"]
+                    response["next_stage"] = "RECONCILE_CONFLICT"
+                    return response
+                if previous and prior_status in FINAL_STATUSES and not promoted:
                     return {**previous["response"], "idempotent_replay": True}
                 if job.dry_run:
                     response = self._base_response(job, "DRY_RUN", started)

@@ -272,6 +272,34 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(first["status"], "COMPLETED")
         self.assertTrue(second["idempotent_replay"])
         self.assertEqual(builder.calls, 1)
+    def test_dry_run_can_promote_to_live_after_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source, builder, identity, github = FakeSource(), FakeBuilder(), FakeIdentity(), FakeGitHub()
+            runner = self.runner(tmp, source, builder, identity, github)
+            preview = runner.run(job(dry_run=True), apply=False)
+            self.assertEqual(preview["status"], "DRY_RUN")
+            self.assertEqual((source.calls, builder.calls, identity.calls, github.calls), (0, 0, 0, 0))
+            live = runner.run(job(dry_run=False), apply=True)
+            replay = runner.run(job(dry_run=False), apply=True)
+            self.assertEqual(live["status"], "COMPLETED")
+            self.assertFalse(live["idempotent_replay"])
+            self.assertTrue(replay["idempotent_replay"])
+            self.assertEqual((source.calls, builder.calls, identity.calls, github.calls), (1, 1, 1, 1))
+
+    def test_conflicting_promotion_cannot_replace_original_ledger(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            builder = FakeBuilder()
+            runner = self.runner(tmp, builder=builder)
+            preview = runner.run(job(dry_run=True), apply=False)
+            wrong = runner.run(job(dry_run=False, source_sha="b" * 40), apply=True)
+            stored = runner.ledger.read("req-0001")
+            correct = runner.run(job(dry_run=False), apply=True)
+            self.assertEqual(preview["status"], "DRY_RUN")
+            self.assertEqual(wrong["status"], "CONFLICT")
+            self.assertEqual(stored["response"]["status"], "DRY_RUN")
+            self.assertEqual(correct["status"], "COMPLETED")
+            self.assertEqual(builder.calls, 1)
+
     def test_same_request_different_sha_conflicts(self):
         with tempfile.TemporaryDirectory() as tmp:
             runner = self.runner(tmp)
