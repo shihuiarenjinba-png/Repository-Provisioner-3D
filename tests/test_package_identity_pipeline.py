@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -144,8 +145,11 @@ class PackageInspectionTests(unittest.TestCase):
         self.assertEqual(result["publisher"], "CN=Test Publisher")
         self.assertEqual(result["version"], "1.2.3.4")
         self.assertRegex(result["sha256"], r"^[0-9a-f]{64}$")
-        self.assertTrue(result["package_family_name"].startswith("Sample.Product_"))
-    @unittest.skipUnless(__import__("os").name == "nt", "Windows AppModel API required")
+        if os.name == "nt":
+            self.assertTrue(result["package_family_name"].startswith("Sample.Product_"))
+        else:
+            self.assertIsNone(result["package_family_name"])
+    @unittest.skipUnless(os.name == "nt", "Windows AppModel API required")
     def test_publisher_id_uses_windows_appmodel_api(self):
         publisher = "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
         self.assertEqual(_package_family_name("Microsoft.Windows.Photos", publisher),
