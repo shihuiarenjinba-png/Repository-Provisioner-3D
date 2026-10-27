@@ -6,7 +6,7 @@ APP/GAME/GAME_3Dは同一実装と同一JSON Schemaを使用し、相違は `con
 |---|---|---|---|
 | APP | AI-App-Factory | codex/factory-autoloop-20261026 | WINDOWS |
 | GAME | AI-Game-Factory | codex/factory-autoloop-20261026 | WINDOWS |
-| GAME_3D | 3d-game-factory | codex/3d-factory-bootstrap-20261026 | GODOT_WINDOWS |
+| GAME_3D | 3d-game-factory | codex/3d-real-msix-build-path-20261027 | GODOT_WINDOWS |
 
 - 共通実装SHA-256: `3def43391f76177452ac5efe3e987ced1c4a6d2148d6896de7fdbd1d785d4084`
 - job schema: `1bddf5a4baa52846ddb3f81702a671d142edf5a0565c3de4e24e47c88f35f1f6`
@@ -14,3 +14,10 @@ APP/GAME/GAME_3Dは同一実装と同一JSON Schemaを使用し、相違は `con
 - 共通suiteは各46件、合計138件PASS。APPには既存intake suite 12件（PASS 11 / SKIP 1）も統合され、3リポジトリ総計150件（PASS 149 / FAIL 0 / SKIP 1）。3 CLIのDRY_RUN並列実行PASS。
 
 次工程はGitHub認証復旧、承認済みFactory job供給、Windows/Godot実build、Partner Center公式Identity照合、作業ブランチCAS返却、GitHub Windows Runnerでの正式Identity MSIX再生成。Factory本体、Windows-all-auto本体、5日スケジューラ、Store提出は責任外。
+
+
+> Current 3D Factory route: `codex/3d-real-msix-build-path-20261027`. The
+> Provisioner returns `verified_source_sha` in `approved-identity.json`
+> together with the authenticated Partner Center evidence fields. This is
+> required by the Factory's fail-closed MSIX builder; Identity remains HOLD
+> without genuine operator-supplied evidence and an exact source HEAD.
