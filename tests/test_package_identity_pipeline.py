@@ -12,7 +12,7 @@ from package_identity_provisioner import (
     ConflictError, GitHubReturnClient, HoldError, Job, Ledger, OfficialIdentityProvider,
     PackageBuilder, ProductConfig, Provisioner, RequestLock, RetryableError,
     SourceManager, compare_package_identity, inspect_package, redact,
-    windows_all_auto_record, _package_family_name,
+    windows_all_auto_record, _package_family_name, _windows_package_sid,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,14 +41,17 @@ def job(**updates):
 
 def evidence(**updates):
     cfg = config()
+    family = _package_family_name("Sample.Product", "CN=Test Publisher")
+    sid = _windows_package_sid(family) if family else None
     value = {
         "request_id": "req-0001", "product_type": cfg.product_type, "slug": "sample-product",
         "source_sha": SHA, "authenticated_account": "partner-operator@example.invalid",
         "verified_at": "2026-10-26T00:00:00Z",
         "official_evidence_url": "https://partner.microsoft.com/dashboard/products/123",
         "store_id": "9N1234567890", "name": "Sample.Product", "publisher": "CN=Test Publisher",
-        "version": "1.2.3.4", "package_family_name": "Sample.Product_testpublisher",
-        "package_sid": "S-1-15-2-1-2-3-4-5-6-7",
+        "version": "1.2.3.4",
+        "package_family_name": family or "Sample.Product_testpublisher",
+        "package_sid": sid or "S-1-15-2-1-2-3-4-5-6-7",
     }
     value.update(updates)
     return value
