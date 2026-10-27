@@ -113,7 +113,7 @@ class FakeGitHub:
 
 class ContractValidationTests(unittest.TestCase):
     def test_current_3d_factory_branch_is_pinned(self):
-        self.assertEqual(config().source_branch, "codex/3d-provisioner-job-contract-20261027")
+        self.assertEqual(config().source_branch, "codex/3d-real-msix-build-path-20261027")
 
     def test_valid_job(self):
         self.assertEqual(Job.validate(job(), config()).source_sha, SHA)

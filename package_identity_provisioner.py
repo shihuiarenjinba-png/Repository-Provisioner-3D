@@ -328,8 +328,19 @@ class PackageBuilder:
             raise HoldError("Godot executable is not configured (GODOT_EXE)")
         target = output_dir / "candidate.exe"
         self._run([executable, "--headless", "--path", str(source), "--export-release", "Windows Desktop", str(target)], source, 1800)
-        if not target.is_file():
-            raise HoldError("Godot Windows export produced no executable")
+        if target.is_symlink() or not target.is_file() or target.stat().st_size == 0:
+            raise HoldError("Godot Windows export produced no nonempty executable")
+        # Godot's Windows Desktop export may place game data in a separate
+        # candidate.pck. Accepting only candidate.exe silently loses resources
+        # when binary_format/embed_pck=false.
+        try:
+            preset_text = presets.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeError) as exc:
+            raise HoldError("Cannot read Godot Windows export preset") from exc
+        if re.search(r"(?m)^\s*binary_format/embed_pck\s*=\s*false\s*$", preset_text):
+            pck = target.with_suffix(".pck")
+            if pck.is_symlink() or not pck.is_file() or pck.stat().st_size == 0:
+                raise HoldError("Godot Windows export omitted required candidate.pck payload")
 
     @staticmethod
     def _run(command: list[str], cwd: Path, timeout: int) -> None:
@@ -504,7 +515,7 @@ class GitHubReturnClient:
         self._verify_product(base, job, config)
         existing = self.api(base + "contents/" + target_path + "?ref=" + quote(config.source_branch, safe=""), allow_missing=True)
         if existing is not None:
-            if self._existing_matches(existing, official):
+            if self._existing_matches(existing, official, job.source_sha):
                 # GitHub Contents API 'sha' is a *blob* SHA, not a commit SHA.
                 # Recheck the branch because no atomic mutation guards this read.
                 latest_ref = self.api(base + "git/ref/heads/" + config.source_branch)
@@ -515,7 +526,8 @@ class GitHubReturnClient:
             raise ConflictError("approved-identity.json already exists and will not be overwritten")
         approved = {"reviewed": True, "source": "partner_center", "store_id": official["store_id"],
                     "name": official["name"], "publisher": official["publisher"], "version": official["version"],
-                    "verified_by": official["authenticated_account"], "evidence_url": official["official_evidence_url"]}
+                    "verified_by": official["authenticated_account"], "evidence_url": official["official_evidence_url"],
+                    "verified_source_sha": job.source_sha}
         content = json.dumps(approved, ensure_ascii=False, indent=2) + "\n"
         body = {"query": self.MUTATION, "variables": {"input": {
             "branch": {"repositoryNameWithOwner": config.source_repository, "branchName": config.source_branch},
@@ -576,7 +588,7 @@ class GitHubReturnClient:
         return raw
 
     @staticmethod
-    def _existing_matches(existing: dict[str, Any], official: dict[str, Any]) -> bool:
+    def _existing_matches(existing: dict[str, Any], official: dict[str, Any], source_sha: str) -> bool:
         if existing.get("encoding") != "base64":
             return False
         try:
@@ -588,7 +600,8 @@ class GitHubReturnClient:
         if (content.get("reviewed") is not True
                 or content.get("source") != "partner_center"
                 or content.get("verified_by") != official.get("authenticated_account")
-                or content.get("evidence_url") != official.get("official_evidence_url")):
+                or content.get("evidence_url") != official.get("official_evidence_url")
+                or content.get("verified_source_sha") != source_sha):
             return False
         return all(content.get(key) == official.get(key) for key in ("store_id", "name", "publisher", "version"))
 

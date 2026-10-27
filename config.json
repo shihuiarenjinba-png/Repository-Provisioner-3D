@@ -2,7 +2,7 @@
   "product_type": "GAME_3D",
   "source_factory": "3d-game-factory",
   "source_repository": "shihuiarenjinba-png/3d-game-factory",
-  "source_branch": "codex/3d-provisioner-job-contract-20261027",
+  "source_branch": "codex/3d-real-msix-build-path-20261027",
   "target_owner": "shihuiarenjinba-png",
   "build_kind": "GODOT_WINDOWS",
   "output_patterns": ["**/*.msix", "**/*.appx", "**/*.exe"]

@@ -40,6 +40,7 @@ def existing(overrides=None):
         "reviewed": True, "source": "partner_center",
         "verified_by": official()["authenticated_account"],
         "evidence_url": official()["official_evidence_url"],
+        "verified_source_sha": PINNED,
         **{k: official()[k] for k in ("store_id", "name", "publisher", "version")},
     }
     data.update(overrides or {})
@@ -100,6 +101,39 @@ class ExistingIdentityRegressionTests(unittest.TestCase):
         with self.assertRaises(ConflictError):
             GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
         self.assertEqual(api.writes, 0)
+
+    def test_wrong_or_missing_verified_source_sha_is_conflict(self):
+        for value in ("c" * 40, None):
+            with self.subTest(value=value):
+                api = FakeAPI(existing({"verified_source_sha": value}))
+                with self.assertRaises(ConflictError):
+                    GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
+                self.assertEqual(api.writes, 0)
+
+    def test_new_identity_commit_contains_verified_source_sha(self):
+        class CaptureAPI(FakeAPI):
+            def __init__(self):
+                super().__init__(prior=None)
+                self.captured = None
+
+            def __call__(self, endpoint, body=None, allow_missing=False):
+                if "/approved-identity.json" in endpoint:
+                    return None
+                if endpoint == "graphql":
+                    self.captured = body
+                    return {"data": {"createCommitOnBranch": {"commit": {
+                        "oid": "d" * 40, "url": "https://github.invalid/c"
+                    }}}}
+                return super().__call__(endpoint, body=body, allow_missing=allow_missing)
+
+        api = CaptureAPI()
+        result = GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
+        self.assertEqual(result["status"], "APPLIED")
+        addition = api.captured["variables"]["input"]["fileChanges"]["additions"][0]
+        approved = json.loads(base64.b64decode(addition["contents"]))
+        self.assertEqual(approved["verified_source_sha"], PINNED)
+        self.assertTrue(approved["reviewed"])
+        self.assertEqual(approved["source"], "partner_center")
 
     def test_head_changes_during_read_is_conflict(self):
         api = FakeAPI(move_head=True)
