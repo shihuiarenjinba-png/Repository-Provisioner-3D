@@ -320,7 +320,8 @@ class PackageBuilder:
             path = source / relative
             if not path.is_file():
                 continue
-            command = (["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(path)]
+            powershell = shutil.which("pwsh") or shutil.which("powershell") or "powershell"
+            command = ([powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(path)]
                        if path.suffix.lower() == ".ps1" else ["cmd", "/d", "/c", str(path)])
             self._run(command, source, 1800)
             return
@@ -415,7 +416,8 @@ def signature_status(path: Path) -> str:
     if os.name != "nt":
         return "UNAVAILABLE_NON_WINDOWS"
     escaped = str(path).replace("'", "''")
-    command = ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+    powershell = shutil.which("pwsh") or shutil.which("powershell") or "powershell"
+    command = [powershell, "-NoProfile", "-NonInteractive", "-Command",
                f"(Get-AuthenticodeSignature -LiteralPath '{escaped}').Status.ToString()"]
     try:
         result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", timeout=30, check=False)
