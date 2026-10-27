@@ -59,6 +59,27 @@ class GodotPckPayloadTests(unittest.TestCase):
             self.build(project, output)
             self.assertTrue((output / "candidate.exe").is_file())
 
+    def test_stale_exe_cannot_pass_successful_noop_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, output = self.make_project(Path(tmp), embed=True)
+            (output / "candidate.exe").write_bytes(b"MZ-old-export")
+            with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
+                PackageBuilder, "_run", return_value=None
+            ):
+                with self.assertRaisesRegex(HoldError, "nonempty executable"):
+                    PackageBuilder()._build_godot(project, output)
+
+    def test_stale_external_pck_cannot_pass_new_exe_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, output = self.make_project(Path(tmp))
+            (output / "candidate.pck").write_bytes(b"GDPC-old-export")
+            with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
+                PackageBuilder, "_run",
+                side_effect=lambda *_: (output / "candidate.exe").write_bytes(b"MZ-new-export")
+            ):
+                with self.assertRaisesRegex(HoldError, "candidate.pck"):
+                    PackageBuilder()._build_godot(project, output)
+
     def test_missing_exe_is_hold_even_with_pck(self):
         with tempfile.TemporaryDirectory() as tmp:
             project, output = self.make_project(Path(tmp))
