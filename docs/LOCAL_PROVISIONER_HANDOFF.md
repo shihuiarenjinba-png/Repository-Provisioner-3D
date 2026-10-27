@@ -8,6 +8,7 @@
 
 - 統合元: `codex/3d-local-identity-provenance-20261027` / `a1727301eddd2966d5f9540ebc287055480c1758`
 - ローカル作業ブランチ: `codex/e2e-belt-connection-20261027`
+- 現行Draft PR: https://github.com/shihuiarenjinba-png/Repository-Provisioner-3D/pull/7
 - 自動テスト: **71件 / PASS 69 / FAIL 0 / SKIP 2**（Windows symlink権限制約）
 - 共通Schema正規化SHA-256: job `0fbdaf38d25563bf60f756fbf2dd03468517584fb7b05b1bf5f942bf27c1d599` / result `1264f0285283c77aceb2956d687ff3898657578b82ba37ff475a8565f8709310`
 - 変更概要: 動的で安全なFactory `codex/*` branch、7項目相関、SHA固定取得、Godot export allowlist、巨大ファイル防止、PFN/Package SID/署名/SHA-256、既存Identity完全照合、GraphQL CAS、PowerShell 7優先。
