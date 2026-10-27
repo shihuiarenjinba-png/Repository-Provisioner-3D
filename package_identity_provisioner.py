@@ -295,7 +295,9 @@ class PackageBuilder:
             if not project_root.resolve().is_relative_to(source.resolve()):
                 raise HoldError("3D product path escapes the pinned Factory checkout")
             self._build_godot(project_root, output_dir)
-            candidates = self._candidates(output_dir, config)
+            # Only the exact export target is eligible for 3D pre-MSIX evidence.
+            # A reused output directory may contain unrelated/stale executables.
+            candidates = [output_dir / "candidate.exe"]
         else:
             before = {p.resolve(): (p.stat().st_mtime_ns, p.stat().st_size)
                       for p in self._candidates(source, config) if p.is_file()}
