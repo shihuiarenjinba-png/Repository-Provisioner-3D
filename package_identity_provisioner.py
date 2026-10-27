@@ -363,8 +363,11 @@ class PackageBuilder:
             raise HoldError("Cannot read Godot Windows export preset") from exc
         if re.search(r"(?m)^\s*binary_format/embed_pck\s*=\s*false\s*$", preset_text):
             pck = target.with_suffix(".pck")
-            if pck.is_symlink() or not pck.is_file() or pck.stat().st_size == 0:
+            if pck.is_symlink() or not pck.is_file() or pck.stat().st_size < 4:
                 raise HoldError("Godot Windows export omitted required candidate.pck payload")
+            with pck.open("rb") as handle:
+                if handle.read(4) != b"GDPC":
+                    raise HoldError("Godot Windows export PCK has invalid GDPC header")
 
     @staticmethod
     def _run(command: list[str], cwd: Path, timeout: int) -> None:
