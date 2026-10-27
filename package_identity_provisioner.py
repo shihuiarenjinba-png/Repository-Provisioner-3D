@@ -33,9 +33,21 @@ REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{3,127}$")
 VERSION = re.compile(r"^\d{1,5}(?:\.\d{1,5}){3}$")
 STORE_ID = re.compile(r"^[A-Za-z0-9]{8,32}$")
 IDENTITY_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{2,49}$")
+PACKAGE_FAMILY_NAME = re.compile(r"^[A-Za-z0-9._-]+_[a-z0-9]{13}$")
+PACKAGE_SID = re.compile(r"^S-1-15-2(?:-\d+){7}$")
 ALLOWED_ACTIONS = {"BUILD_WINDOWS", "INSPECT_PACKAGE", "LOOKUP_OFFICIAL_IDENTITY", "PROPOSE_GITHUB_RETURN"}
 FINAL_STATUSES = {"COMPLETED", "DRY_RUN", "CONFLICT"}
 TRANSIENT_HTTP = {429, 500, 502, 503, 504}
+
+
+def valid_work_branch(value: Any) -> bool:
+    if not isinstance(value, str) or not 7 <= len(value) <= 240 or not value.startswith("codex/"):
+        return False
+    if not re.fullmatch(r"codex/[A-Za-z0-9._/-]+", value):
+        return False
+    if ".." in value or "//" in value or "@{" in value or value.endswith(("/", ".")):
+        return False
+    return all(part and not part.startswith(".") and not part.endswith(".lock") for part in value.split("/"))
 
 
 class ProvisionerError(Exception):
@@ -145,10 +157,12 @@ class Job:
         if raw["product_type"] != config.product_type:
             raise HoldError("Product type belongs to a different Provisioner")
         exact = {"source_factory": config.source_factory, "source_repository": config.source_repository,
-                 "source_branch": config.source_branch, "target_owner": config.target_owner}
+                 "target_owner": config.target_owner}
         for field, expected in exact.items():
             if raw[field] != expected:
                 raise HoldError(f"{field} is not the configured allowlisted value")
+        if not valid_work_branch(raw["source_branch"]):
+            raise HoldError("source_branch must be a safe codex/* work branch")
         if not isinstance(raw["source_sha"], str) or not SHA40.fullmatch(raw["source_sha"]) or set(raw["source_sha"]) == {"0"}:
             raise HoldError("source_sha must be an exact non-placeholder lowercase Git SHA")
         if not isinstance(raw["slug"], str) or not SLUG.fullmatch(raw["slug"]):
@@ -479,9 +493,9 @@ class OfficialIdentityProvider:
             raise HoldError("Invalid official version")
         pfn = raw["package_family_name"]
         sid = raw["package_sid"]
-        if not isinstance(pfn, str) or not 3 <= len(pfn) <= 256 or any(ch.isspace() for ch in pfn):
+        if not isinstance(pfn, str) or not PACKAGE_FAMILY_NAME.fullmatch(pfn):
             raise HoldError("Invalid official Package Family Name")
-        if not isinstance(sid, str) or not sid.startswith("S-1-15-2-") or len(sid) > 512:
+        if not isinstance(sid, str) or not PACKAGE_SID.fullmatch(sid):
             raise HoldError("Invalid official Package SID")
         return raw
 
@@ -505,6 +519,8 @@ def compare_package_identity(package: dict[str, Any], official: dict[str, Any],
             return "DEFERRED_TO_FACTORY_MSIX"
         raise HoldError("Official Identity requires MSIX/AppX for this product type")
     checks = (("package_identity", "name"), ("publisher", "publisher"), ("version", "version"))
+    if os.name == "nt" and (not package.get("package_family_name") or not package.get("package_sid")):
+        raise HoldError("Windows package PFN or Package SID could not be collected")
     mismatches = [f"{left}!={right}" for left, right in checks if package.get(left) != official.get(right)]
     if package.get("package_family_name") and package.get("package_family_name") != official.get("package_family_name"):
         mismatches.append("package_family_name!=official")
@@ -528,6 +544,10 @@ def windows_all_auto_record(job: Job, official: dict[str, Any],
         "source_sha": job.source_sha,
         "slug": job.slug,
         "expected_head_sha": job.source_sha,
+        "package_sha256": package["sha256"],
+        "package_family_name": official["package_family_name"],
+        "package_sid": official["package_sid"],
+        "signature_status": package["signature_status"],
         "local_package_sha256": package["sha256"],
         "local_package_kind": package["kind"],
         "local_signature_status": package["signature_status"],
@@ -550,20 +570,20 @@ class GitHubReturnClient:
                         package: dict[str, Any], apply: bool) -> dict[str, Any]:
         target_path = f"products/{job.slug}/store/approved-identity.json"
         base = f"repos/{config.source_repository}/"
-        proposal = {"status": "NOT_APPLIED", "repository": config.source_repository, "branch": config.source_branch,
+        proposal = {"status": "NOT_APPLIED", "repository": config.source_repository, "branch": job.source_branch,
                     "path": target_path, "commit_sha": None, "commit_url": None}
         if not apply:
             return proposal
-        ref = self.api(base + "git/ref/heads/" + config.source_branch)
+        ref = self.api(base + "git/ref/heads/" + job.source_branch)
         if not isinstance(ref, dict) or ref.get("object", {}).get("sha") != job.source_sha:
             raise ConflictError("Factory HEAD changed before identity return")
         self._verify_product(base, job, config)
-        existing = self.api(base + "contents/" + target_path + "?ref=" + quote(config.source_branch, safe=""), allow_missing=True)
+        existing = self.api(base + "contents/" + target_path + "?ref=" + quote(job.source_branch, safe=""), allow_missing=True)
         if existing is not None:
             if self._existing_matches(existing, official, job, package):
                 # GitHub Contents API 'sha' is a *blob* SHA, not a commit SHA.
                 # Recheck the branch because no atomic mutation guards this read.
-                latest_ref = self.api(base + "git/ref/heads/" + config.source_branch)
+                latest_ref = self.api(base + "git/ref/heads/" + job.source_branch)
                 if (not isinstance(latest_ref, dict)
                         or latest_ref.get("object", {}).get("sha") != job.source_sha):
                     raise ConflictError("Factory HEAD changed while verifying existing identity")
@@ -581,13 +601,16 @@ class GitHubReturnClient:
                     "verified_by": official["authenticated_account"],
                     "evidence_url": official["official_evidence_url"],
                     "verified_source_sha": job.source_sha,
+                    "source_sha": job.source_sha,
                     "expected_head_sha": job.source_sha,
+                    "package_sha256": package["sha256"],
+                    "signature_status": package["signature_status"],
                     "local_package_sha256": package["sha256"],
                     "local_package_kind": package["kind"],
                     "local_signature_status": package["signature_status"]}
         content = json.dumps(approved, ensure_ascii=False, indent=2) + "\n"
         body = {"query": self.MUTATION, "variables": {"input": {
-            "branch": {"repositoryNameWithOwner": config.source_repository, "branchName": config.source_branch},
+            "branch": {"repositoryNameWithOwner": config.source_repository, "branchName": job.source_branch},
             "message": {"headline": "store: return verified Partner Center identity for " + job.slug},
             "expectedHeadOid": job.source_sha,
             "fileChanges": {"additions": [{"path": target_path,
@@ -601,7 +624,7 @@ class GitHubReturnClient:
         return {**proposal, "status": "APPLIED", "commit_sha": commit["oid"], "commit_url": commit.get("url")}
 
     def _verify_product(self, base: str, job: Job, config: ProductConfig) -> None:
-        branch = quote(config.source_branch, safe="")
+        branch = quote(job.source_branch, safe="")
         if config.product_type == "GAME_3D":
             item = self.api(base + f"contents/products/{job.slug}/project.godot?ref=" + branch)
             if b"run/main_scene" not in self._decode_content(item, 128_000):
@@ -668,7 +691,10 @@ class GitHubReturnClient:
             "verified_by": official.get("authenticated_account"),
             "evidence_url": official.get("official_evidence_url"),
             "verified_source_sha": job.source_sha,
+            "source_sha": job.source_sha,
             "expected_head_sha": job.source_sha,
+            "package_sha256": package.get("sha256"),
+            "signature_status": package.get("signature_status"),
             "local_package_sha256": package.get("sha256"),
             "local_package_kind": package.get("kind"),
             "local_signature_status": package.get("signature_status"),
@@ -781,7 +807,7 @@ class Provisioner:
                                       "version": None, "package_family_name": None, "package_sid": None,
                                       "package_comparison": None, "official_evidence_url": None},
                 "github_return": {"status": "NOT_APPLIED", "repository": self.config.source_repository,
-                                  "branch": self.config.source_branch,
+                                  "branch": job.source_branch,
                                   "path": f"products/{job.slug}/store/approved-identity.json", "commit_sha": None},
                 "windows_all_auto_record": None, "errors": [], "next_stage": None}
 

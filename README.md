@@ -17,7 +17,7 @@ python provisioner.py --input job.json --output result.json `
   --official-identity C:\secure\partner-center-evidence.json --apply
 ```
 
-返却先は `shihuiarenjinba-png/3d-game-factory` の `codex/3d-real-msix-build-path-20261027`、`products/<slug>/store/approved-identity.json` に固定されています。入力・出力契約は `schemas/`、運用とHOLD項目は `docs/LOCAL_PROVISIONER_HANDOFF.md` を参照してください。
+返却先リポジトリは `shihuiarenjinba-png/3d-game-factory` に固定し、ブランチは入力 `source_branch` と同じ安全な `codex/*` 作業ブランチを使用します。`main`、`release`、不正なブランチ名は拒否します。返却パスは `products/<slug>/store/approved-identity.json` です。入力・出力契約は `schemas/`、運用とHOLD項目は `docs/LOCAL_PROVISIONER_HANDOFF.md` を参照してください。
 
 
 > Current 3D Factory route: `codex/3d-real-msix-build-path-20261027`. The

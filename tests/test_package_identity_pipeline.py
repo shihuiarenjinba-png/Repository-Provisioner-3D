@@ -146,6 +146,12 @@ class ContractValidationTests(unittest.TestCase):
     def test_wrong_return_branch_is_hold(self):
         with self.assertRaises(HoldError):
             Job.validate(job(source_branch="main"), config())
+    def test_other_safe_codex_work_branch_is_allowed(self):
+        self.assertEqual(Job.validate(job(source_branch="codex/product/sample-product"), config()).source_branch,
+                         "codex/product/sample-product")
+    def test_unsafe_codex_work_branch_is_hold(self):
+        with self.assertRaises(HoldError):
+            Job.validate(job(source_branch="codex/../main"), config())
     def test_placeholder_sha_is_hold(self):
         with self.assertRaises(HoldError):
             Job.validate(job(source_sha="0" * 40), config())
@@ -210,7 +216,9 @@ class IdentityEvidenceTests(unittest.TestCase):
                 OfficialIdentityProvider(path).lookup(Job.validate(job(), config()))
     def test_package_identity_mismatch_is_conflict(self):
         with self.assertRaises(ConflictError):
-            compare_package_identity({"kind": "msix", "package_identity": "Other", "publisher": "CN=Test Publisher", "version": "1.2.3.4", "package_family_name": None, "package_sid": None}, evidence(), config().product_type)
+            compare_package_identity({"kind": "msix", "package_identity": "Other", "publisher": "CN=Test Publisher",
+                                      "version": "1.2.3.4", "package_family_name": evidence()["package_family_name"],
+                                      "package_sid": evidence()["package_sid"]}, evidence(), config().product_type)
     def test_3d_exe_defers_identity_match_to_factory_msix(self):
         result = compare_package_identity(local_package("exe"), evidence(), config().product_type)
         self.assertEqual(result, "DEFERRED_TO_FACTORY_MSIX")
@@ -224,6 +232,10 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertEqual(contract["source_branch"], config().source_branch)
         self.assertEqual(contract["source_sha"], SHA)
         self.assertEqual(contract["slug"], "sample-product")
+        self.assertEqual(contract["package_sha256"], "d" * 64)
+        self.assertEqual(contract["package_family_name"], evidence()["package_family_name"])
+        self.assertEqual(contract["package_sid"], evidence()["package_sid"])
+        self.assertEqual(contract["signature_status"], "UNSIGNED")
         self.assertEqual(contract["local_package_sha256"], "d" * 64)
         self.assertEqual(contract["identity"]["package_sid"], evidence()["package_sid"])
         self.assertTrue(contract["operator_verified"])
@@ -271,6 +283,21 @@ class GitHubReturnTests(unittest.TestCase):
             return {"encoding": "base64", "content": base64.b64encode(b'{"store_id":"OTHER000"}').decode()}
         with self.assertRaises(ConflictError):
             GitHubReturnClient(existing).return_identity(Job.validate(job(), config()), config(), evidence(), local_package("exe"), True)
+
+    def test_job_work_branch_drives_ref_read_and_atomic_write(self):
+        selected = "codex/product/sample-product"
+        seen = []
+
+        def api(endpoint, body=None, allow_missing=False):
+            seen.append((endpoint, body))
+            return self.api(endpoint, body, allow_missing)
+
+        result = GitHubReturnClient(api).return_identity(
+            Job.validate(job(source_branch=selected), config()), config(), evidence(), local_package("exe"), True)
+        self.assertEqual(result["branch"], selected)
+        self.assertIn("git/ref/heads/" + selected, seen[0][0])
+        graphql = next(body for endpoint, body in seen if endpoint == "graphql")
+        self.assertEqual(graphql["variables"]["input"]["branch"]["branchName"], selected)
 
 
 class OrchestratorTests(unittest.TestCase):
