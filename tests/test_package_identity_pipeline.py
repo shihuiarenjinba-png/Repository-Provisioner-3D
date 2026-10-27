@@ -187,6 +187,19 @@ class PackageInspectionTests(unittest.TestCase):
             result = inspect_package(path)
         self.assertIsNone(result["package_identity"])
         self.assertEqual(result["kind"], "exe")
+    def test_3d_export_reports_external_pck_bytes_and_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "candidate.exe"
+            pck = Path(tmp) / "candidate.pck"
+            exe.write_bytes(b"MZ-real-export-fixture")
+            pck.write_bytes(b"GDPC-real-pck-fixture")
+            result = inspect_package(exe, godot_export=True)
+            self.assertEqual(result["godot_export"]["exe_sha256"], result["sha256"])
+            self.assertEqual(result["godot_export"]["external_pck_sha256"],
+                             __import__("hashlib").sha256(pck.read_bytes()).hexdigest())
+            self.assertEqual(result["godot_export"]["external_pck_size_bytes"], pck.stat().st_size)
+            self.assertEqual(result["godot_export"]["evidence_scope"], "LOCAL_EXPORT_NOT_INDEPENDENT")
+
     def test_invalid_msix_is_hold(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "a.msix"
@@ -344,6 +357,9 @@ class OrchestratorTests(unittest.TestCase):
             runner.identity = FakeIdentity()
             second = runner.run(job(), apply=True)
         self.assertEqual(first["status"], "HOLD")
+        self.assertEqual(first["package"]["status"], "INSPECTED")
+        self.assertRegex(first["package"]["sha256"], r"^[0-9a-f]{64}$")
+        self.assertIsNone(first["windows_all_auto_record"])
         self.assertEqual(second["status"], "COMPLETED")
     def test_retryable_github_failure_is_distinct(self):
         with tempfile.TemporaryDirectory() as tmp:
