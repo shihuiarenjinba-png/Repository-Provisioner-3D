@@ -12,7 +12,7 @@ from package_identity_provisioner import (
     ConflictError, GitHubReturnClient, HoldError, Job, Ledger, OfficialIdentityProvider,
     PackageBuilder, ProductConfig, Provisioner, RequestLock, RetryableError,
     SourceManager, compare_package_identity, inspect_package, redact,
-    windows_all_auto_record, _package_family_name,
+    windows_all_auto_record, _package_family_name, _windows_package_sid,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -41,6 +41,8 @@ def job(**updates):
 
 def evidence(**updates):
     cfg = config()
+    family = _package_family_name("Sample.Product", "CN=Test Publisher")
+    sid = _windows_package_sid(family) if family else None
     value = {
         "request_id": "req-0001", "product_type": cfg.product_type, "slug": "sample-product",
         "source_sha": SHA, "authenticated_account": "partner-operator@example.invalid",
@@ -48,6 +50,8 @@ def evidence(**updates):
         "official_evidence_url": "https://partner.microsoft.com/dashboard/products/123",
         "store_id": "9N1234567890", "name": "Sample.Product", "publisher": "CN=Test Publisher",
         "version": "1.2.3.4",
+        "package_family_name": family or "Sample.Product_testpublisher",
+        "package_sid": sid or "S-1-15-2-1-2-3-4-5-6-7",
     }
     value.update(updates)
     return value
@@ -62,6 +66,19 @@ def make_msix(path: Path, name="Sample.Product", publisher="CN=Test Publisher", 
         archive.writestr("AppxManifest.xml", manifest)
         archive.writestr("payload.txt", "payload")
     return path
+
+def local_package(kind="msix"):
+    return {
+        "kind": kind,
+        "sha256": "d" * 64,
+        "signature_status": "UNSIGNED",
+        "package_identity": "Sample.Product" if kind in {"msix", "appx"} else None,
+        "publisher": "CN=Test Publisher" if kind in {"msix", "appx"} else None,
+        "version": "1.2.3.4" if kind in {"msix", "appx"} else None,
+        "package_family_name": None,
+        "package_sid": None,
+    }
+
 
 
 class FakeSource:
@@ -193,13 +210,22 @@ class IdentityEvidenceTests(unittest.TestCase):
                 OfficialIdentityProvider(path).lookup(Job.validate(job(), config()))
     def test_package_identity_mismatch_is_conflict(self):
         with self.assertRaises(ConflictError):
-            compare_package_identity({"kind": "msix", "package_identity": "Other", "publisher": "CN=Test Publisher", "version": "1.2.3.4"}, evidence())
-    def test_exe_cannot_approve_official_identity(self):
-        with self.assertRaises(HoldError):
-            compare_package_identity({"kind": "exe"}, evidence())
-    def test_windows_all_auto_adapter(self):
-        contract = windows_all_auto_record(Job.validate(job(), config()), evidence())
+            compare_package_identity({"kind": "msix", "package_identity": "Other", "publisher": "CN=Test Publisher", "version": "1.2.3.4", "package_family_name": None, "package_sid": None}, evidence(), config().product_type)
+    def test_3d_exe_defers_identity_match_to_factory_msix(self):
+        result = compare_package_identity(local_package("exe"), evidence(), config().product_type)
+        self.assertEqual(result, "DEFERRED_TO_FACTORY_MSIX")
+    def test_windows_all_auto_adapter_preserves_correlation_keys(self):
+        contract = windows_all_auto_record(Job.validate(job(), config()), evidence(), local_package("exe"))
         self.assertEqual(contract["expected_head_sha"], SHA)
+        self.assertEqual(contract["request_id"], "req-0001")
+        self.assertEqual(contract["product_type"], "GAME_3D")
+        self.assertEqual(contract["source_factory"], config().source_factory)
+        self.assertEqual(contract["source_repository"], config().source_repository)
+        self.assertEqual(contract["source_branch"], config().source_branch)
+        self.assertEqual(contract["source_sha"], SHA)
+        self.assertEqual(contract["slug"], "sample-product")
+        self.assertEqual(contract["local_package_sha256"], "d" * 64)
+        self.assertEqual(contract["identity"]["package_sid"], evidence()["package_sid"])
         self.assertTrue(contract["operator_verified"])
 
 
@@ -222,19 +248,19 @@ class GitHubReturnTests(unittest.TestCase):
         raise AssertionError(endpoint)
 
     def test_atomic_apply_returns_real_commit_sha(self):
-        result = GitHubReturnClient(self.api).return_identity(Job.validate(job(), config()), config(), evidence(), True)
+        result = GitHubReturnClient(self.api).return_identity(Job.validate(job(), config()), config(), evidence(), local_package("exe"), True)
         self.assertEqual(result["status"], "APPLIED")
         self.assertEqual(result["commit_sha"], "b" * 40)
     def test_no_apply_is_side_effect_free(self):
         def forbidden(*_a, **_k):
             raise AssertionError("API must not be called")
-        result = GitHubReturnClient(forbidden).return_identity(Job.validate(job(), config()), config(), evidence(), False)
+        result = GitHubReturnClient(forbidden).return_identity(Job.validate(job(), config()), config(), evidence(), local_package("exe"), False)
         self.assertEqual(result["status"], "NOT_APPLIED")
     def test_head_mismatch_is_conflict(self):
         def wrong_head(*_a, **_k):
             return {"object": {"sha": "c" * 40}}
         with self.assertRaises(ConflictError):
-            GitHubReturnClient(wrong_head).return_identity(Job.validate(job(), config()), config(), evidence(), True)
+            GitHubReturnClient(wrong_head).return_identity(Job.validate(job(), config()), config(), evidence(), local_package("exe"), True)
     def test_existing_different_identity_is_conflict(self):
         def existing(endpoint, body=None, allow_missing=False):
             if "git/ref" in endpoint:
@@ -244,7 +270,7 @@ class GitHubReturnTests(unittest.TestCase):
                 return {"encoding": "base64", "content": base64.b64encode(raw).decode()}
             return {"encoding": "base64", "content": base64.b64encode(b'{"store_id":"OTHER000"}').decode()}
         with self.assertRaises(ConflictError):
-            GitHubReturnClient(existing).return_identity(Job.validate(job(), config()), config(), evidence(), True)
+            GitHubReturnClient(existing).return_identity(Job.validate(job(), config()), config(), evidence(), local_package("exe"), True)
 
 
 class OrchestratorTests(unittest.TestCase):
@@ -300,10 +326,13 @@ class OrchestratorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             result = self.runner(tmp, builder=FakeBuilder(name="Other.Product")).run(job(), apply=True)
         self.assertEqual(result["status"], "CONFLICT")
-    def test_exe_only_build_is_hold(self):
+    def test_3d_exe_only_build_can_return_identity_for_factory_msix(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe")).run(job(), apply=True)
-        self.assertEqual(result["status"], "HOLD")
+        self.assertEqual(result["status"], "COMPLETED")
+        self.assertEqual(result["official_identity"]["package_comparison"], "DEFERRED_TO_FACTORY_MSIX")
+        self.assertRegex(result["package"]["sha256"], r"^[0-9a-f]{64}$")
+        self.assertEqual(result["windows_all_auto_record"]["request_id"], "req-0001")
     def test_type_state_is_namespaced(self):
         with tempfile.TemporaryDirectory() as tmp:
             runner = self.runner(tmp)

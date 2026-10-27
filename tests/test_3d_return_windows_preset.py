@@ -32,8 +32,17 @@ OFFICIAL = {
     "name": "Sample.Product",
     "publisher": "CN=Test Publisher",
     "version": "1.2.3.4",
+    "package_family_name": "Sample.Product_testpublisher",
+    "package_sid": "S-1-15-2-1-2-3-4-5-6-7",
     "authenticated_account": "operator@example.invalid",
     "official_evidence_url": "https://partner.microsoft.com/dashboard/products/123",
+}
+
+
+PACKAGE = {
+    "kind": "exe", "sha256": "d" * 64, "signature_status": "UNSIGNED",
+    "package_identity": None, "publisher": None, "version": None,
+    "package_family_name": None, "package_sid": None,
 }
 
 
@@ -65,7 +74,7 @@ class WindowsPresetReturnTests(unittest.TestCase):
     def assert_rejected(self, preset):
         api = FakeAPI(preset)
         with self.assertRaises(ConflictError):
-            GitHubReturnClient(api).return_identity(job(), CONFIG, OFFICIAL, True)
+            GitHubReturnClient(api).return_identity(job(), CONFIG, OFFICIAL, PACKAGE, True)
         self.assertEqual(api.writes, 0)
 
     def test_missing_preset_blocks_identity_return(self):
@@ -84,7 +93,7 @@ class WindowsPresetReturnTests(unittest.TestCase):
 
     def test_valid_windows_preset_can_reach_atomic_commit(self):
         api = FakeAPI(b'[preset.0]\nname="Windows Desktop"\nplatform="Windows Desktop"\n')
-        result = GitHubReturnClient(api).return_identity(job(), CONFIG, OFFICIAL, True)
+        result = GitHubReturnClient(api).return_identity(job(), CONFIG, OFFICIAL, PACKAGE, True)
         self.assertEqual(result["status"], "APPLIED")
         self.assertEqual(result["commit_sha"], "b" * 40)
         self.assertEqual(api.writes, 1)
