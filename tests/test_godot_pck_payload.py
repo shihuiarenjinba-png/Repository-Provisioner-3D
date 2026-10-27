@@ -53,6 +53,18 @@ class GodotPckPayloadTests(unittest.TestCase):
             self.build(project, output, pck=True)
             self.assertTrue((output / "candidate.pck").is_file())
 
+    def test_external_pck_with_wrong_magic_is_hold(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, output = self.make_project(Path(tmp))
+            def fake_export(_command, _cwd, _timeout):
+                (output / "candidate.exe").write_bytes(b"MZ-candidate")
+                (output / "candidate.pck").write_bytes(b"NOT_A_GODOT_PACK")
+            with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
+                PackageBuilder, "_run", side_effect=fake_export
+            ):
+                with self.assertRaisesRegex(HoldError, "PCK.*header"):
+                    PackageBuilder()._build_godot(project, output)
+
     def test_embedded_pck_allows_exe_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             project, output = self.make_project(Path(tmp), embed=True)
