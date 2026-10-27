@@ -30,18 +30,34 @@ def official():
     return {
         "store_id": "9N1234567890", "name": "Sample.Product",
         "publisher": "CN=Test Publisher", "version": "1.2.3.4",
+        "package_family_name": "Sample.Product_testpublisher",
+        "package_sid": "S-1-15-2-1-2-3-4-5-6-7",
         "authenticated_account": "operator@example.invalid",
         "official_evidence_url": "https://partner.microsoft.com/dashboard/products/123",
+    }
+
+
+def package():
+    return {
+        "kind": "exe", "sha256": "d" * 64, "signature_status": "UNSIGNED",
+        "package_identity": None, "publisher": None, "version": None,
+        "package_family_name": None, "package_sid": None,
     }
 
 
 def existing(overrides=None):
     data = {
         "reviewed": True, "source": "partner_center",
+        "request_id": job().request_id, "product_type": job().product_type,
+        "source_factory": job().source_factory, "source_repository": job().source_repository,
+        "source_branch": job().source_branch, "slug": job().slug,
         "verified_by": official()["authenticated_account"],
         "evidence_url": official()["official_evidence_url"],
-        "verified_source_sha": PINNED,
-        **{k: official()[k] for k in ("store_id", "name", "publisher", "version")},
+        "verified_source_sha": PINNED, "expected_head_sha": PINNED,
+        "local_package_sha256": package()["sha256"], "local_package_kind": "exe",
+        "local_signature_status": "UNSIGNED",
+        **{k: official()[k] for k in ("store_id", "name", "publisher", "version",
+                                     "package_family_name", "package_sid")},
     }
     data.update(overrides or {})
     return {"sha": BLOB_SHA, "encoding": "base64",
@@ -77,7 +93,7 @@ class FakeAPI:
 class ExistingIdentityRegressionTests(unittest.TestCase):
     def test_existing_verified_returns_pinned_commit_not_blob(self):
         api = FakeAPI()
-        result = GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
+        result = GitHubReturnClient(api).return_identity(job(), CONFIG, official(), package(), True)
         self.assertEqual(result["status"], "EXISTING_VERIFIED")
         self.assertEqual(result["commit_sha"], PINNED)
         self.assertNotEqual(result["commit_sha"], BLOB_SHA)
@@ -87,19 +103,19 @@ class ExistingIdentityRegressionTests(unittest.TestCase):
     def test_missing_review_is_conflict(self):
         api = FakeAPI(existing({"reviewed": False}))
         with self.assertRaises(ConflictError):
-            GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
+            GitHubReturnClient(api).return_identity(job(), CONFIG, official(), package(), True)
         self.assertEqual(api.writes, 0)
 
     def test_wrong_operator_is_conflict(self):
         api = FakeAPI(existing({"verified_by": "other-operator"}))
         with self.assertRaises(ConflictError):
-            GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
+            GitHubReturnClient(api).return_identity(job(), CONFIG, official(), package(), True)
         self.assertEqual(api.writes, 0)
 
     def test_wrong_evidence_url_is_conflict(self):
         api = FakeAPI(existing({"evidence_url": "https://partner.microsoft.com/other"}))
         with self.assertRaises(ConflictError):
-            GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
+            GitHubReturnClient(api).return_identity(job(), CONFIG, official(), package(), True)
         self.assertEqual(api.writes, 0)
 
     def test_wrong_or_missing_verified_source_sha_is_conflict(self):
@@ -107,7 +123,7 @@ class ExistingIdentityRegressionTests(unittest.TestCase):
             with self.subTest(value=value):
                 api = FakeAPI(existing({"verified_source_sha": value}))
                 with self.assertRaises(ConflictError):
-                    GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
+                    GitHubReturnClient(api).return_identity(job(), CONFIG, official(), package(), True)
                 self.assertEqual(api.writes, 0)
 
     def test_new_identity_commit_contains_verified_source_sha(self):
@@ -127,7 +143,7 @@ class ExistingIdentityRegressionTests(unittest.TestCase):
                 return super().__call__(endpoint, body=body, allow_missing=allow_missing)
 
         api = CaptureAPI()
-        result = GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
+        result = GitHubReturnClient(api).return_identity(job(), CONFIG, official(), package(), True)
         self.assertEqual(result["status"], "APPLIED")
         addition = api.captured["variables"]["input"]["fileChanges"]["additions"][0]
         approved = json.loads(base64.b64decode(addition["contents"]))
@@ -138,7 +154,7 @@ class ExistingIdentityRegressionTests(unittest.TestCase):
     def test_head_changes_during_read_is_conflict(self):
         api = FakeAPI(move_head=True)
         with self.assertRaisesRegex(ConflictError, "HEAD changed"):
-            GitHubReturnClient(api).return_identity(job(), CONFIG, official(), True)
+            GitHubReturnClient(api).return_identity(job(), CONFIG, official(), package(), True)
         self.assertEqual(api.head_reads, 2)
         self.assertEqual(api.writes, 0)
 
