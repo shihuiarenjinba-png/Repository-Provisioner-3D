@@ -438,7 +438,7 @@ def signature_status(path: Path) -> str:
     return result.stdout.strip().upper() if result.returncode == 0 and result.stdout.strip() else "INSPECTION_FAILED"
 
 
-def inspect_package(path: Path) -> dict[str, Any]:
+def inspect_package(path: Path, *, godot_export: bool = False) -> dict[str, Any]:
     if not path.is_file():
         raise HoldError("Package artifact does not exist")
     digest = hashlib.sha256()
@@ -451,6 +451,30 @@ def inspect_package(path: Path) -> dict[str, Any]:
         "signature_status": signature_status(path), "package_identity": None, "publisher": None,
         "version": None, "package_family_name": None, "package_sid": None,
     }
+    if godot_export:
+        if path.suffix.lower() != ".exe" or path.is_symlink():
+            raise HoldError("Godot export evidence must be a regular Windows EXE")
+        pck = path.with_suffix(".pck")
+        if pck.is_symlink() or (pck.exists() and not pck.is_file()):
+            raise HoldError("Godot external PCK evidence is not a regular file")
+        pck_sha256, pck_size_bytes = None, None
+        if pck.exists():
+            digest_pck = hashlib.sha256()
+            with pck.open("rb") as handle:
+                header = handle.read(4)
+                if header != b"GDPC":
+                    raise HoldError("Godot external PCK has invalid GDPC header")
+                digest_pck.update(header)
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest_pck.update(chunk)
+            pck_sha256 = digest_pck.hexdigest()
+            pck_size_bytes = pck.stat().st_size
+        result["godot_export"] = {
+            "exe_sha256": result["sha256"],
+            "external_pck_sha256": pck_sha256,
+            "external_pck_size_bytes": pck_size_bytes,
+            "evidence_scope": "LOCAL_EXPORT_NOT_INDEPENDENT",
+        }
     if path.suffix.lower() not in {".msix", ".appx"}:
         return result
     try:
@@ -778,10 +802,14 @@ class Provisioner:
                     response["next_stage"] = "SUBMIT_NON_DRY_RUN_AFTER_REVIEW"
                     self._save(job, response, {"stage": "DRY_RUN_VALIDATED"})
                     return response
+                package: dict[str, Any] | None = None
                 try:
                     root = self.work_dir / hashlib.sha256(job.request_id.encode()).hexdigest()[:16]
                     source_dir = self.source.acquire(job, root / "source")
-                    package = inspect_package(self.builder.build(job, source_dir, root / "artifacts", self.config))
+                    package = inspect_package(
+                        self.builder.build(job, source_dir, root / "artifacts", self.config),
+                        godot_export=job.product_type == "GAME_3D",
+                    )
                     official = self.identity.lookup(job)
                     comparison = compare_package_identity(package, official, job.product_type)
                     contract = windows_all_auto_record(job, official, package)
@@ -802,9 +830,9 @@ class Provisioner:
                     self._save(job, response, {"stage": returned["status"], "package_sha256": package["sha256"]})
                     return response
                 except ProvisionerError as exc:
-                    return self._record_error(job, exc, started, previous)
+                    return self._record_error(job, exc, started, previous, package=package)
                 except Exception as exc:
-                    return self._record_error(job, ProvisionerError(f"Unexpected local failure: {type(exc).__name__}"), started, previous)
+                    return self._record_error(job, ProvisionerError(f"Unexpected local failure: {type(exc).__name__}"), started, previous, package=package)
         except ProvisionerError as exc:
             return self._error_response(raw, exc, started)
 
@@ -839,8 +867,13 @@ class Provisioner:
                 "started_at": started, "finished_at": utc_now(), "idempotent_replay": False}
 
     def _record_error(self, job: Job, exc: ProvisionerError, started: str,
-                      previous: dict[str, Any] | None) -> dict[str, Any]:
+                      previous: dict[str, Any] | None,
+                      package: dict[str, Any] | None = None) -> dict[str, Any]:
         response = self._base_response(job, exc.status, started)
+        if package is not None:
+            # Preserve local EXE/PCK byte evidence across an external Identity HOLD.
+            # This is inspection evidence, never an accepted product or E2E receipt.
+            response["package"] = package
         response["errors"], response["next_stage"] = [redact(str(exc))], exc.next_stage
         self._save(job, response, {"stage": exc.status}, attempts=int((previous or {}).get("attempts", 0)) + 1)
         return response
