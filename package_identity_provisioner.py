@@ -342,6 +342,13 @@ class PackageBuilder:
         if not executable:
             raise HoldError("Godot executable is not configured (GODOT_EXE)")
         target = output_dir / "candidate.exe"
+        # Retries reuse the same request workspace. Never let an old EXE/PCK
+        # satisfy a new export that returned success without writing payloads.
+        for stale in (target, target.with_suffix(".pck")):
+            if stale.is_symlink() or stale.is_file():
+                stale.unlink()
+            elif stale.exists():
+                raise HoldError("Godot export target is not a regular file")
         self._run([executable, "--headless", "--path", str(source), "--export-release", "Windows Desktop", str(target)], source, 1800)
         if target.is_symlink() or not target.is_file() or target.stat().st_size == 0:
             raise HoldError("Godot Windows export produced no nonempty executable")
