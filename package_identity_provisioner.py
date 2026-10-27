@@ -806,9 +806,10 @@ class Provisioner:
                 try:
                     root = self.work_dir / hashlib.sha256(job.request_id.encode()).hexdigest()[:16]
                     source_dir = self.source.acquire(job, root / "source")
+                    built_path = self.builder.build(job, source_dir, root / "artifacts", self.config)
                     package = inspect_package(
-                        self.builder.build(job, source_dir, root / "artifacts", self.config),
-                        godot_export=job.product_type == "GAME_3D",
+                        built_path,
+                        godot_export=(job.product_type == "GAME_3D" and built_path.suffix.lower() == ".exe"),
                     )
                     official = self.identity.lookup(job)
                     comparison = compare_package_identity(package, official, job.product_type)
