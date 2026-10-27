@@ -15,7 +15,8 @@
 - 資料生成時の実装HEAD: `5f24d054af28a8d76f66894ad815b4a4bc94e658`
 - コミット: `88896a2 docs: redirect...`、`5f24d05 feat: implement package identity round-trip provisioner`
 - Draft PR: https://github.com/shihuiarenjinba-png/Repository-Provisioner-3D/pull/1
-- CI検証済みHEAD: `ab5687189eeeb329063d52b15ff18d086c8f7e17`
+- 実装・テスト検証HEAD: `00b16f0a6040885f37ff00ec79c821e12f26fad1`
+- GitHub CI: https://github.com/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/40423366537 （Windows / Ubuntu とも成功）
 - GitHub Actions: SUCCESS — https://github.com/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/40382381684
 - Provisioner作業ブランチpush: 成功（非force）。
 - 差分: Package+Identity CLI、共通Schema、SHA固定取得、Godot Windows export/専用QA、MSIX/署名/PFN/SID解析、型別台帳・排他、公式Identity照合、GitHub CAS返却、CI、テスト。資料更新commit自体のSHAはDraft PRの最新HEADを正とする。
