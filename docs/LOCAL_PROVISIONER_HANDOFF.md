@@ -2,6 +2,14 @@
 
 更新日: 2026-10-27 (Asia/Tokyo)
 
+## 2026-10-28: Identity前のGodot export証拠（最新コード契約）
+
+- 外部PCK (`candidate.pck`) が必要なexportでは、存在・非symlink・`GDPC`ヘッダーを検査し、偽装したPCKを拒否する。
+- 3D EXEのローカル検査結果は `package.godot_export` に `exe_sha256`、`external_pck_sha256`、`external_pck_size_bytes` を記録する。外部PCKが無い場合は後二者を `null` とし、存在を推測しない。
+- `evidence_scope=LOCAL_EXPORT_NOT_INDEPENDENT` は重要な制限。これはProvisionerが観測したバイトのSHAであり、Factoryの独立したexport証拠との一致、真正性、製品受入、Store Identityを証明しない。
+- Identity未提供で `HOLD` になっても、成功したローカル検査の `package` 証拠はresultと再開台帳に保持する。ただし `windows_all_auto_record` は `null`、GitHub CASは未実施。これを実MSIXやE2E PASSに昇格させない。
+- 36分Windows担当は `request_id`、不変 `source_sha`、`source_branch`、`slug` とEXE/PCKハッシュを独立したFactory証拠と照合し、後段の `factory_build_head` は別SHAとして管理する。テンプレートfixtureをaccepted productとして扱わない。
+
 ## 現行統合判定（旧スナップショットより優先）
 
 **HOLD — オフライン実装完了／ライブ作成未確認。** 監督台帳上のGAME_3D active productは`null`で、新規生成ゲートは閉じている。Godot実製品export、正式MSIX、認証済みPartner Center Identity、Factory CAS書戻し、Windows GPU/専用QAはいずれも未実施。Store提出は0件。
