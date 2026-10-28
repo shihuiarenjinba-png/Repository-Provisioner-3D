@@ -100,6 +100,27 @@ jobs:
           print('PASS: real Provisioner PRE_IDENTITY_BYTES_CORRELATED; official Identity remains HOLD')
           print(json.dumps(request,ensure_ascii=False,indent=2))
           PY
+      - name: Produce read-only 36-minute handoff HOLD receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python prism_check_only.py --handoff handoffs/prism-route-3d-partner-center-product-creation.json > canary-check-only.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path('canary-check-only.json').read_text(encoding='utf-8'))
+          assert r['mode'] == 'CHECK_ONLY_NO_SIDE_EFFECTS'
+          assert r['request_id'] == '3d-prism-route-3d-15fdcb52e46e'
+          assert r['immutable_source_sha'] == '15fdcb52e46e35e6de8e87c55af99719c21e09b9'
+          assert r['registration_type'] == 'MSIX_OR_PWA_GAME'
+          assert r['pre_identity_status'] == 'PRE_IDENTITY_READY'
+          assert r['product_e2e'] == 'HOLD'
+          assert r['post_identity_package_gate']['windows_all_auto_intake_allowed'] is False
+          assert r['post_identity_package_gate']['store_ready'] is False
+          assert r['digest_roles']['package_sha256'] is None
+          assert r['artifact_snapshot_freshness']['remote_artifact_retrieval_verified'] is False
+          print('PASS: independent read-only handoff contract receipt, still HOLD')
+          PY
       - name: Preserve PRE_IDENTITY receipt only (no Store credentials)
         if: always()
         uses: actions/upload-artifact@v4
@@ -109,6 +130,7 @@ jobs:
             canary-job.json
             canary-result.json
             canary-user-id-request.json
+            canary-check-only.json
           if-no-files-found: warn
           retention-days: 7
 
