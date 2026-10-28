@@ -43,27 +43,27 @@
     "artifact_archive_digest": "sha256:76b5fae99491b70514e3152483e0192ac70b2909d8f6eeb9802a640ad12409b0"
   },
   "provisioner_pre_identity_evidence": {
-    "run_id": 40745641394,
-    "artifact_id": 12840504286,
+    "run_id": 40753808123,
+    "artifact_id": 12844423126,
     "artifact_name": "prism-route-3d-provisioner-pre-identity",
-    "run_head_sha": "26b08bfd6563c4290ebc04f9a310c67dc0b20850",
+    "run_head_sha": "9cb79786a2bf24b0a94c7ab58bd21c26574ddd7e",
     "artifact_expired_at_observation": false,
-    "artifact_expires_at": "2026-11-04T18:30:29Z",
-    "artifact_archive_size_bytes": 2591,
-    "artifact_archive_digest": "sha256:b877ff5b18e668dce09b8b60295daf43f35ae422dee0099d9aa2cd404b0f0370"
+    "artifact_expires_at": "2026-11-04T19:23:49Z",
+    "artifact_archive_size_bytes": 2594,
+    "artifact_archive_digest": "sha256:1b1ea38974c0326537237f088dd3a60c58e84219f3f129c42666d551f0dab4ef"
   },
   "real_makeappx_qa_evidence": {
-    "run_id": 40745641571,
-    "artifact_id": 12841601327,
+    "run_id": 40753808570,
+    "artifact_id": 12844063246,
     "artifact_name": "prism-route-3d-real-makeappx-unsigned-not-store",
-    "run_head_sha": "26b08bfd6563c4290ebc04f9a310c67dc0b20850",
+    "run_head_sha": "9cb79786a2bf24b0a94c7ab58bd21c26574ddd7e",
     "artifact_expired_at_observation": false,
-    "artifact_expires_at": "2026-11-02T18:30:27Z",
+    "artifact_expires_at": "2026-11-02T19:23:46Z",
     "qa_only": true,
     "store_ready": false,
     "signed": false,
     "artifact_archive_size_bytes": 31022040,
-    "artifact_archive_digest": "sha256:7360e649afb6a67937cc4150b97164a3d29478c5bc1eefd5f4ec1651df5ca3f5"
+    "artifact_archive_digest": "sha256:81e7b137d84a0ae241c29ffebc582dea61482f7e8a6ac69d338b2b61d25daff9"
   },
   "controls": {
     "second_3d_product_allowed": false,
@@ -105,5 +105,5 @@
     "msix_safety_qa_receipt": null,
     "intake_status": "HOLD_PRE_MSIX"
   },
-  "evidence_snapshot_note": "GitHub Actions metadata checked on 2026-10-29 JST: Factory run 40640951915 at immutable source SHA; PRE run 40745641394 and unsigned MakeAppx run 40745641571 at Provisioner HEAD 26b08bfd6563c4290ebc04f9a310c67dc0b20850. Artifact archive SHA-256 values refer to ZIP archives, not EXE/PCK/MSIX payload digests. This is a historical remote metadata snapshot only: no Partner Center authenticated capture, CAS, signed post-Identity MSIX, or Windows intake is proven."
+  "evidence_snapshot_note": "GitHub Actions API independently rechecked 2026-10-29 05:27 JST: Factory pinned source run 40640951915; real PRE run 40753808123/artifact 12844423126 and unsigned MakeAppx run 40753808570/artifact 12844063246 both at prior Provisioner HEAD 9cb79786a2bf24b0a94c7ab58bd21c26574ddd7e. Artifact digest is ZIP archive SHA-256, not EXE/PCK/MSIX payload SHA-256. This historical snapshot is NOT current-HEAD real rerun evidence, authenticated Partner Center Identity, CAS, signed MSIX, or Windows intake."
 }
