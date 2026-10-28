@@ -281,6 +281,9 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertEqual(contract["intake_status"], "HOLD_PRE_MSIX")
         self.assertFalse(contract["store_ready"])
         self.assertIsNone(contract["identity_cas_receipt"])
+        self.assertEqual(contract["package_version_gate"], "HOLD_NO_APPROVED_POST_IDENTITY_VERSION")
+        self.assertIsNone(contract["post_identity_msix_version"])
+        self.assertIsNone(contract["post_identity_version_approval_receipt"])
         self.assertEqual(contract["package_family_name"], evidence()["package_family_name"])
         self.assertEqual(contract["package_sid"], evidence()["package_sid"])
         self.assertEqual(contract["signature_status"], "NOT_APPLICABLE_PRE_MSIX")
@@ -290,13 +293,31 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertTrue(contract["operator_verified"])
 
 
-    def test_windows_all_auto_msix_digest_is_not_replaced_with_exe_hold(self):
+    def test_3d_msix_candidate_is_not_intake_ready_without_cas_version_and_qa(self):
         contract = windows_all_auto_record(Job.validate(job(), config()), evidence(), local_package("msix"))
-        self.assertEqual(contract["package_sha256"], "d" * 64)
+        self.assertIsNone(contract["package_sha256"])
+        self.assertEqual(contract["package_sha256_kind"], "POST_IDENTITY_MSIX_ONLY")
+        self.assertEqual(contract["msix_package_sha256"], "d" * 64)
+        self.assertIsNone(contract["pre_identity_exe_sha256"])
+        self.assertEqual(contract["post_identity_msix_version"], "1.2.3.4")
+        self.assertEqual(contract["package_version_gate"], "HOLD_NO_APPROVED_POST_IDENTITY_VERSION")
+        self.assertIsNone(contract["post_identity_version_approval_receipt"])
+        self.assertIsNone(contract["post_identity_msix_qa_receipt"])
+        self.assertIsNone(contract["post_identity_signature_verification_receipt"])
+        self.assertIsNone(contract["identity_cas_receipt"])
+        self.assertEqual(contract["intake_status"], "HOLD_CAS_VERSION_SIGNATURE_QA")
+        self.assertFalse(contract["store_ready"])
         self.assertEqual(contract["local_package_kind"], "msix")
+        self.assertEqual(contract["local_package_sha256"], "d" * 64)
         self.assertEqual(contract["signature_status"], "UNSIGNED")
-        self.assertNotIn("pre_identity_exe_sha256", contract)
-        self.assertNotIn("intake_status", contract)
+
+    def test_3d_appx_is_not_mistaken_for_approved_msix(self):
+        contract = windows_all_auto_record(Job.validate(job(), config()), evidence(), local_package("appx"))
+        self.assertIsNone(contract["package_sha256"])
+        self.assertIsNone(contract["msix_package_sha256"])
+        self.assertIsNone(contract["post_identity_msix_version"])
+        self.assertEqual(contract["intake_status"], "HOLD_UNSUPPORTED_3D_PACKAGE_KIND")
+        self.assertFalse(contract["store_ready"])
 
     def test_pre_identity_exe_never_has_msix_sha_even_with_official_reference(self):
         contract = windows_all_auto_record(Job.validate(job(), config()), evidence(), local_package("exe"))

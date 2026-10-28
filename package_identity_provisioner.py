@@ -687,18 +687,27 @@ def windows_all_auto_record(job: Job, official: dict[str, Any],
                       "package_family_name", "package_sid")},
     }
 
-    # A Godot EXE/PCK is a verified source payload, not a Store MSIX.
-    # Fail closed for Windows-all-auto intake even after operator Identity lookup.
-    # Only a separately built and verified post-Identity MSIX may populate
-    # package_sha256. Preserve the EXE hash under an explicitly typed key.
-    if job.product_type == "GAME_3D" and package.get("kind") == "exe":
+    # GAME_3D has two distinct package stages. Even an inspected MSIX is
+    # not an intake-ready product until an independent Identity CAS receipt,
+    # approved manifest version, signature verification and MSIX safety QA.
+    # In particular, an EXE digest must never become a final MSIX digest.
+    if job.product_type == "GAME_3D":
+        kind = package.get("kind")
         record.update(
             package_sha256=None,
             package_sha256_kind="POST_IDENTITY_MSIX_ONLY",
-            pre_identity_exe_sha256=package["sha256"],
-            msix_package_sha256=None,
-            signature_status="NOT_APPLICABLE_PRE_MSIX",
-            intake_status="HOLD_PRE_MSIX",
+            pre_identity_exe_sha256=package["sha256"] if kind == "exe" else None,
+            msix_package_sha256=package["sha256"] if kind == "msix" else None,
+            post_identity_msix_version=package.get("version") if kind == "msix" else None,
+            package_version_gate="HOLD_NO_APPROVED_POST_IDENTITY_VERSION",
+            post_identity_version_approval_receipt=None,
+            post_identity_msix_qa_receipt=None,
+            post_identity_signature_verification_receipt=None,
+            signature_status=("NOT_APPLICABLE_PRE_MSIX" if kind == "exe"
+                              else package["signature_status"]),
+            intake_status=("HOLD_PRE_MSIX" if kind == "exe"
+                           else "HOLD_CAS_VERSION_SIGNATURE_QA" if kind == "msix"
+                           else "HOLD_UNSUPPORTED_3D_PACKAGE_KIND"),
             store_ready=False,
             identity_cas_receipt=None,
         )

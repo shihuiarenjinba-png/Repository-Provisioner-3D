@@ -63,6 +63,26 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
             raise HandoffContractError(f"unverified local gate: {key}")
     if data.get("post_identity_status") != "HOLD":
         raise HandoffContractError("post-Identity package cannot be ready yet")
+    post = data.get("post_identity_package_gate")
+    if not isinstance(post, dict) or set(post) != {
+        "version_status", "approved_version", "candidate_manifest_version",
+        "candidate_msix_sha256", "pre_identity_exe_sha256_kind",
+        "identity_cas_receipt", "version_approval_receipt",
+        "signature_verification_receipt", "msix_safety_qa_receipt",
+        "intake_status",
+    }:
+        raise HandoffContractError("missing explicit post-Identity package gate")
+    if post["version_status"] != "HOLD_NO_APPROVED_POST_IDENTITY_VERSION":
+        raise HandoffContractError("post-Identity version is not approved")
+    if post["pre_identity_exe_sha256_kind"] != "EXE_ONLY_NOT_MSIX":
+        raise HandoffContractError("pre-Identity EXE digest cannot be an MSIX digest")
+    if post["intake_status"] != "HOLD_PRE_MSIX":
+        raise HandoffContractError("post-Identity MSIX intake not authorized")
+    for key in ("approved_version", "candidate_manifest_version", "candidate_msix_sha256",
+                "identity_cas_receipt", "version_approval_receipt",
+                "signature_verification_receipt", "msix_safety_qa_receipt"):
+        if post[key] is not None:
+            raise HandoffContractError(f"unverified post-Identity evidence: {key}")
     fields = data.get("identity_fields_required")
     if not isinstance(fields, dict) or set(fields) != set(_FIELDS) or any(v is not None for v in fields.values()):
         raise HandoffContractError("unverified official Identity fields must remain unresolved")

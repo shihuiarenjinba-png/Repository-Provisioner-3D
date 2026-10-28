@@ -61,6 +61,25 @@ class PrismHandoffTests(unittest.TestCase):
                 with self.assertRaises(HandoffContractError):
                     validate_prism_handoff(d)
 
+    def test_post_identity_version_and_msix_digest_are_fail_closed(self):
+        for key, value in (
+            ("version_status", "PASS"),
+            ("approved_version", "1.0.0.0"),
+            ("candidate_manifest_version", "1.0.0.0"),
+            ("candidate_msix_sha256", "a" * 64),
+            ("pre_identity_exe_sha256_kind", "MSIX"),
+            ("identity_cas_receipt", "unverified"),
+            ("version_approval_receipt", "unverified"),
+            ("signature_verification_receipt", "unverified"),
+            ("msix_safety_qa_receipt", "unverified"),
+            ("intake_status", "READY"),
+        ):
+            with self.subTest(key=key):
+                d = copy.deepcopy(self.handoff)
+                d["post_identity_package_gate"][key] = value
+                with self.assertRaises(HandoffContractError):
+                    validate_prism_handoff(d)
+
     def test_manual_reference_does_not_authorize_store_pipeline(self):
         for key, value in (
             ("local_operator_identity_capture", "PASS"),

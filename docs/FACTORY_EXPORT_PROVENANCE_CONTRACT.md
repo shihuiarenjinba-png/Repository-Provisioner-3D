@@ -35,3 +35,27 @@ Identity return target: `products/prism-route-3d/store/approved-identity.json` o
 - Local Windows tests are `DEFERRED_LOCAL_GATE` until the user explicitly resumes them.
 - Existing 3d-build-qa ZIP/CRC/BlockMap/XML/manifest/payload guards remain mandatory for the eventual product MSIX.
 - Keep Draft PRs unmerged; no main/release writes, force push, Store upload, or mass production.
+
+## Explicit post-Identity version and digest gate (2026-10-28)
+
+The GAME_3D Windows handoff is **not** an intake receipt. For a Godot EXE,
+`pre_identity_exe_sha256` contains the verified EXE digest, while
+`package_sha256=null`, `msix_package_sha256=null`,
+`post_identity_msix_version=null`, and `intake_status=HOLD_PRE_MSIX`.
+The version gate is `HOLD_NO_APPROVED_POST_IDENTITY_VERSION`.
+
+Even if a later local MSIX candidate is inspected, its digest is only recorded
+under `msix_package_sha256`, and its unapproved manifest version under
+`post_identity_msix_version`. The generic `package_sha256` remains null,
+`store_ready=false`, and `intake_status=HOLD_CAS_VERSION_SIGNATURE_QA`.
+An AppX candidate is held as `HOLD_UNSUPPORTED_3D_PACKAGE_KIND`.
+This protects the 36-minute Windows intake from promoting an EXE or an
+unapproved MSIX candidate on the strength of a hash alone.
+
+Promotion requires a separately authenticated Partner Center Identity capture,
+CAS approval receipt, explicitly approved 4-component MSIX manifest version,
+the final MSIX SHA-256, independently verified signature and MSIX ZIP/CRC/
+BlockMap/XML/manifest/payload safety QA, and a real Windows intake receipt.
+None of these are implied by a manually observed Identity JSON file, the
+unsigned MakeAppx QA artifact, or an inspected candidate MSIX. The 36-minute
+Windows lane owns that later promotion and queue; 24-minute lane keeps HOLD.

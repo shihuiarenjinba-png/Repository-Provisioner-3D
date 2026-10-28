@@ -76,5 +76,17 @@
   "identity_return_cas_receipt_status": "NOT_PROVEN",
   "local_operator_create_flow": "PARTIAL",
   "local_operator_identity_capture": "NOT_PROVEN",
-  "github_to_local_trigger": "NOT_PROVEN"
+  "github_to_local_trigger": "NOT_PROVEN",
+  "post_identity_package_gate": {
+    "version_status": "HOLD_NO_APPROVED_POST_IDENTITY_VERSION",
+    "approved_version": null,
+    "candidate_manifest_version": null,
+    "candidate_msix_sha256": null,
+    "pre_identity_exe_sha256_kind": "EXE_ONLY_NOT_MSIX",
+    "identity_cas_receipt": null,
+    "version_approval_receipt": null,
+    "signature_verification_receipt": null,
+    "msix_safety_qa_receipt": null,
+    "intake_status": "HOLD_PRE_MSIX"
+  }
 }
