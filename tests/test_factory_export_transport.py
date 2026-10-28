@@ -72,8 +72,8 @@ class FactoryTransportTests(unittest.TestCase):
                 kwargs["stdout"].write(b"short")
                 return subprocess.CompletedProcess(command, 0)
             with patch.object(FactoryExportTransport, "_json",
-                              side_effect=[{"id": 42}, {"id": 7, "size_in_bytes": 100}]), \\
-                 patch("factory_export_transport.subprocess.run", side_effect=truncated_download), \\
+                              side_effect=[{"id": 42}, {"id": 7, "size_in_bytes": 100}]), \
+                 patch("factory_export_transport.subprocess.run", side_effect=truncated_download), \
                  patch("factory_export_transport.verify_factory_export_artifact") as verify:
                 with self.assertRaisesRegex(HoldError, "download failed"):
                     FactoryExportTransport("gh").verify(
