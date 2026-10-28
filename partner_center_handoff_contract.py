@@ -43,8 +43,32 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
     for key in ("source_sha", "factory_build_head", "observed_factory_branch_head"):
         if not isinstance(data.get(key), str) or not _SHA40.fullmatch(data[key]):
             raise HandoffContractError(f"missing or invalid independently recorded {key}")
+    # Validate consistency of the independently observed GitHub objects,
+    # not merely their SHA syntax. These values are pinned to this one Canary.
+    if data["factory_build_head"] != data["source_sha"]:
+        raise HandoffContractError("Factory run head differs from pinned source")
     if data["observed_factory_branch_head"] == data["source_sha"]:
         raise HandoffContractError("expected observed Identity-only branch drift")
+    if data.get("identity_return_commit_observed") != data["observed_factory_branch_head"]:
+        raise HandoffContractError("Identity return commit differs from observed branch HEAD")
+    factory = data.get("factory_export_evidence")
+    if not isinstance(factory, dict) or (
+        factory.get("run_id") != 40640951915
+        or factory.get("artifact_id") != 12795476435
+        or factory.get("artifact_name") != "godot-3d-factory-export-evidence"
+        or factory.get("authenticated_download_verified") is not True
+    ):
+        raise HandoffContractError("pinned Factory export evidence mismatch")
+    for key in ("provisioner_pre_identity_evidence", "real_makeappx_qa_evidence"):
+        evidence = data.get(key)
+        if not isinstance(evidence, dict) or any(
+            type(evidence.get(field)) is not int or evidence[field] <= 0
+            for field in ("run_id", "artifact_id")
+        ):
+            raise HandoffContractError(f"missing execution evidence: {key}")
+    qa = data["real_makeappx_qa_evidence"]
+    if qa.get("qa_only") is not True or qa.get("signed") is not False or qa.get("store_ready") is not False:
+        raise HandoffContractError("unsigned MakeAppx QA cannot be promoted to Store")
     if data.get("partner_center_product_status") != "EXISTS_MANUAL_CONFIRMED":
         raise HandoffContractError("manual existing product must not be reclassified as not created")
     if data.get("allow_local_product_creation") is not False:
@@ -92,5 +116,10 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
     for key in ("second_3d_product_allowed", "store_submission_allowed", "identity_guessing_allowed"):
         if controls.get(key) is not False:
             raise HandoffContractError(f"unsafe permission: {key}")
+    for key in ("main_release_write_allowed", "force_push_allowed", "auto_merge_allowed"):
+        if controls.get(key) is not False:
+            raise HandoffContractError(f"unsafe repository write permission: {key}")
+    if controls.get("local_gpu_install_gui") != "DEFERRED_LOCAL_GATE":
+        raise HandoffContractError("physical Windows QA is not proven")
     if controls.get("windows_all_auto_intake_status") != "HOLD":
         raise HandoffContractError("no post-Identity Windows intake receipt")
