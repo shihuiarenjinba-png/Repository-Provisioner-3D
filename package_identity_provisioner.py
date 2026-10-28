@@ -354,6 +354,11 @@ class PackageBuilder:
         self._run([executable, "--headless", "--path", str(source), "--export-release", "Windows Desktop", str(target)], source, 1800)
         if target.is_symlink() or not target.is_file() or target.stat().st_size == 0:
             raise HoldError("Godot Windows export produced no nonempty executable")
+        # A successful Godot process may still leave arbitrary bytes at the target.
+        # The MZ magic is a minimal Windows executable check, not a full PE/GUI QA.
+        with target.open("rb") as handle:
+            if handle.read(2) != b"MZ":
+                raise HoldError("Godot Windows export EXE is missing the MZ header")
         # Godot's Windows Desktop export may place game data in a separate
         # candidate.pck. Accepting only candidate.exe silently loses resources
         # when binary_format/embed_pck=false.
@@ -454,6 +459,9 @@ def inspect_package(path: Path, *, godot_export: bool = False) -> dict[str, Any]
     if godot_export:
         if path.suffix.lower() != ".exe" or path.is_symlink():
             raise HoldError("Godot export evidence must be a regular Windows EXE")
+        with path.open("rb") as handle:
+            if handle.read(2) != b"MZ":
+                raise HoldError("Godot export evidence EXE is missing the MZ header")
         pck = path.with_suffix(".pck")
         if pck.is_symlink() or (pck.exists() and not pck.is_file()):
             raise HoldError("Godot external PCK evidence is not a regular file")
