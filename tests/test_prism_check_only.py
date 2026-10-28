@@ -54,8 +54,25 @@ class PrismCheckOnlyTests(unittest.TestCase):
         self.assertIsNone(receipt["digest_roles"]["package_sha256"])
         self.assertEqual(receipt["product_e2e"], "HOLD")
         self.assertFalse(receipt["post_identity_package_gate"]["post_identity_ready"])
-        self.assertTrue(all(v == "MATCHED_CALLER_SUPPLIED_NOT_AUTHENTICATED"
-                            for v in receipt["observations"].values()))
+        for key in ("pre_identity_exe_sha256", "pre_identity_pck_sha256",
+                    "unsigned_qa_msix_sha256"):
+            self.assertEqual(receipt["observations"][key],
+                             "FORMAT_ONLY_CALLER_SUPPLIED_NOT_AUTHENTICATED")
+        for key in ("factory_run_id", "factory_artifact_id",
+                    "factory_run_head", "factory_branch_head",
+                    "identity_file_blob_sha", "identity_only_compare"):
+            self.assertEqual(receipt["observations"][key],
+                             "MATCHED_CALLER_SUPPLIED_NOT_AUTHENTICATED")
+
+    def test_format_only_digest_is_not_misreported_as_independent_match(self):
+        receipt = prism_check_only(self.handoff, {
+            "pre_identity_exe_sha256": "f" * 64,
+        })
+        self.assertEqual(receipt["observations"]["pre_identity_exe_sha256"],
+                         "FORMAT_ONLY_CALLER_SUPPLIED_NOT_AUTHENTICATED")
+        self.assertEqual(receipt["observations"]["factory_run_id"], "NOT_SUPPLIED")
+        self.assertIsNone(receipt["digest_roles"]["package_sha256"])
+        self.assertEqual(receipt["product_e2e"], "HOLD")
 
     def test_conflicting_sha_and_run_observations_are_rejected(self):
         for key, value in (
