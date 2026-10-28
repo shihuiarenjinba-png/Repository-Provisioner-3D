@@ -42,7 +42,7 @@ class FactoryTransportTests(unittest.TestCase):
     def test_success_uses_authenticated_independent_metadata_and_exact_zip(self):
         with tempfile.TemporaryDirectory() as tmp:
             run = {"id": 42}
-            artifact = {"id": 7, "size_in_bytes": 10}
+            artifact = {"id": 7, "size_in_bytes": len(b"ZIP-BYTES")}
             endpoints = []
             def metadata(endpoint):
                 endpoints.append(endpoint)
@@ -64,6 +64,32 @@ class FactoryTransportTests(unittest.TestCase):
                 "/repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/7"])
             self.assertEqual(verify.call_args.args[3:], (run, artifact))
             self.assertFalse(list(Path(tmp).glob("factory-export-*")))
+
+
+    def test_rejects_download_length_mismatch_before_byte_verifier(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            def truncated_download(command, **kwargs):
+                kwargs["stdout"].write(b"short")
+                return subprocess.CompletedProcess(command, 0)
+            with patch.object(FactoryExportTransport, "_json",
+                              side_effect=[{"id": 42}, {"id": 7, "size_in_bytes": 100}]), \\
+                 patch("factory_export_transport.subprocess.run", side_effect=truncated_download), \\
+                 patch("factory_export_transport.verify_factory_export_artifact") as verify:
+                with self.assertRaisesRegex(HoldError, "download failed"):
+                    FactoryExportTransport("gh").verify(
+                        self.job, {}, run_id=42, artifact_id=7, work_root=Path(tmp))
+                verify.assert_not_called()
+
+    def test_rejects_dot_repository_segments_before_network(self):
+        for name in ("../3d-game-factory", "owner/..", "./repo", "owner/."):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                self.job.source_repository = name
+                with patch.object(FactoryExportTransport, "_json") as gh:
+                    with self.assertRaisesRegex(HoldError, "invalid Factory repository"):
+                        FactoryExportTransport("gh").verify(
+                            self.job, {}, run_id=42, artifact_id=7, work_root=Path(tmp))
+                    gh.assert_not_called()
+        self.job.source_repository = "shihuiarenjinba-png/3d-game-factory"
 
     def test_failed_download_never_calls_verifier(self):
         with tempfile.TemporaryDirectory() as tmp:
