@@ -6,9 +6,11 @@ account or a CAS receipt. No Identity, product creation, or Store side effects.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import Any
 
 _SHA40 = re.compile(r"[0-9a-f]{40}\Z")
+_ARCHIVE_DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _FIELDS = (
     "store_id", "reserved_display_name", "package_identity_name",
     "publisher", "publisher_display_name", "pfn", "package_sid",
@@ -96,6 +98,26 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
         observed_pairs.add(pair)
     if len(observed_heads) != 1:
         raise HandoffContractError("PRE/QA evidence comes from different Provisioner HEADs")
+    # Snapshot provenance must be structurally well-formed before handoff.
+    # This does NOT authenticate ZIP bytes or prove current remote retrieval.
+    for section in ("factory_export_evidence", "provisioner_pre_identity_evidence",
+                    "real_makeappx_qa_evidence"):
+        evidence = data[section]
+        digest = evidence.get("artifact_archive_digest")
+        if not isinstance(digest, str) or not _ARCHIVE_DIGEST.fullmatch(digest):
+            raise HandoffContractError(f"invalid ZIP archive digest: {section}")
+        size = evidence.get("artifact_archive_size_bytes")
+        if type(size) is not int or size <= 0:
+            raise HandoffContractError(f"invalid ZIP archive size: {section}")
+        expiry = evidence.get("artifact_expires_at")
+        if not isinstance(expiry, str) or not re.fullmatch(
+            r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", expiry
+        ):
+            raise HandoffContractError(f"invalid ZIP archive expiry: {section}")
+        try:
+            datetime.strptime(expiry, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError as exc:
+            raise HandoffContractError(f"invalid ZIP archive expiry: {section}") from exc
     if factory.get("artifact_expired_at_observation") is not False:
         raise HandoffContractError("Factory export artifact expired or expiry unverified")
     qa = data["real_makeappx_qa_evidence"]
