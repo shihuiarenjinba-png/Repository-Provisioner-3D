@@ -883,6 +883,16 @@ class Provisioner:
                         factory_evidence = self.factory_transport.verify(
                             job, package, run_id=factory_run_id,
                             artifact_id=factory_artifact_id, work_root=root / "factory-evidence")
+                        if (factory_evidence.get("status") != "PRE_IDENTITY_BYTES_CORRELATED"
+                                or factory_evidence.get("payload_authority") != "AUTHENTICATED_FACTORY_ARTIFACT"
+                                or not isinstance(factory_evidence.get("canonical_package_path"), str)):
+                            raise HoldError("Factory export evidence HOLD: canonical payload not verified")
+                        package = inspect_package(
+                            Path(factory_evidence["canonical_package_path"]), godot_export=True)
+                        if (package["sha256"] != factory_evidence["exe_sha256"]
+                                or package["godot_export"]["external_pck_sha256"]
+                                != factory_evidence["external_pck_sha256"]):
+                            raise HoldError("Factory export evidence HOLD: canonical payload changed after verification")
                     official = self.identity.lookup(job)
                     comparison = compare_package_identity(package, official, job.product_type)
                     contract = windows_all_auto_record(job, official, package)
