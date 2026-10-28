@@ -72,7 +72,7 @@
   "observed_factory_branch_head_reason": "An identity-reference-only commit was added after the pinned gameplay/export source; do not rewrite immutable source_sha or assume CAS approval",
   "identity_return_file_status": "EXISTS_UNVERIFIED__NO_CAS_RECEIPT",
   "identity_return_commit_observed": "11417b75636ee18816028ffd5221884c4c9a9836",
-  "identity_return_file_blob_sha_observed": "76dfe0269d8a4e877a34dbe1a16c70db0a1ef79a",
+  "identity_return_file_blob_sha_observed": "9b38b20527b81c85fd03b5373d4a8f8245047115",
   "identity_return_cas_receipt_status": "NOT_PROVEN",
   "local_operator_create_flow": "PARTIAL",
   "local_operator_identity_capture": "NOT_PROVEN",
