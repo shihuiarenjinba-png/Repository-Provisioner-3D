@@ -1,5 +1,6 @@
 """Fail-closed check-only regression for the single pinned real 3D Canary."""
 import copy
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import unittest
@@ -99,6 +100,33 @@ class PrismCheckOnlyTests(unittest.TestCase):
             with self.subTest(digest=bad):
                 with self.assertRaisesRegex(HandoffContractError, "invalid"):
                     prism_check_only(self.handoff, {"unsigned_qa_msix_sha256": bad})
+
+    def test_expiry_is_recomputed_not_trusted_from_stale_snapshot(self):
+        before = prism_check_only(self.handoff, now_utc=datetime(
+            2026, 10, 29, 1, 25, tzinfo=timezone.utc))
+        self.assertEqual(before["artifact_snapshot_freshness"]["roles"][
+            "unsigned_makeappx_qa"], "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY")
+        self.assertEqual(before["artifact_snapshot_freshness"]["roles"][
+            "factory_export"], "UNKNOWN_NO_EXPIRY_IN_SNAPSHOT")
+        after = prism_check_only(self.handoff, now_utc=datetime(
+            2026, 11, 5, tzinfo=timezone.utc))
+        self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
+            "provisioner_pre_identity"], "EXPIRED_REQUIRES_REMOTE_REFRESH")
+        self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
+            "unsigned_makeappx_qa"], "EXPIRED_REQUIRES_REMOTE_REFRESH")
+        self.assertEqual(after["pre_identity_status"], "PRE_IDENTITY_READY")
+        self.assertEqual(after["product_e2e"], "HOLD")
+        self.assertFalse(after["artifact_snapshot_freshness"][
+            "remote_artifact_retrieval_verified"])
+
+    def test_naive_clock_and_invalid_expiry_fail_closed(self):
+        with self.assertRaisesRegex(HandoffContractError, "timezone-aware"):
+            prism_check_only(self.handoff, now_utc=datetime(2026, 10, 29))
+        bad = copy.deepcopy(self.handoff)
+        bad["real_makeappx_qa_evidence"]["artifact_expires_at"] = "2026-02-31T00:00:00Z"
+        with self.assertRaisesRegex(HandoffContractError, "invalid artifact expiry"):
+            prism_check_only(bad, now_utc=datetime(
+                2026, 10, 29, tzinfo=timezone.utc))
 
     def test_corrupted_handoff_is_not_laundered_by_matching_observations(self):
         broken = copy.deepcopy(self.handoff)
