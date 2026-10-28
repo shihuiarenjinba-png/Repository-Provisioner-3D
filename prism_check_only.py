@@ -7,6 +7,7 @@ or Windows intake; no network calls, writes, or Store actions occur.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import re
 from pathlib import Path
@@ -36,7 +37,8 @@ def _match(value: Any, expected: Any, key: str) -> None:
 
 
 def prism_check_only(handoff: dict[str, Any],
-                     observations: dict[str, Any] | None = None) -> dict[str, Any]:
+                     observations: dict[str, Any] | None = None,
+                     *, now_utc: datetime | None = None) -> dict[str, Any]:
     """Return a machine-readable HOLD receipt; never authorize post-Identity intake."""
     validate_prism_handoff(handoff)
     if observations is None:
@@ -67,6 +69,32 @@ def prism_check_only(handoff: dict[str, Any],
                 "unsigned_qa_msix_sha256"):
         if key in observations:
             _sha(observations[key], key, _SHA256)
+    # The handoff is a historical snapshot. A recorded "not expired" flag
+    # is not proof that the artifact is still retrievable at check time.
+    if now_utc is None:
+        now_utc = datetime.now(timezone.utc)
+    if now_utc.tzinfo is None or now_utc.utcoffset() is None:
+        raise HandoffContractError("now_utc must be timezone-aware")
+    now_utc = now_utc.astimezone(timezone.utc)
+    freshness = {}
+    for role, field in (
+        ("factory_export", "factory_export_evidence"),
+        ("provisioner_pre_identity", "provisioner_pre_identity_evidence"),
+        ("unsigned_makeappx_qa", "real_makeappx_qa_evidence"),
+    ):
+        expires_at = handoff[field].get("artifact_expires_at")
+        if not expires_at:
+            freshness[role] = "UNKNOWN_NO_EXPIRY_IN_SNAPSHOT"
+            continue
+        try:
+            expiry = datetime.strptime(expires_at, "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc)
+        except (ValueError, TypeError) as exc:
+            raise HandoffContractError(f"invalid artifact expiry: {field}") from exc
+        freshness[role] = (
+            "EXPIRED_REQUIRES_REMOTE_REFRESH" if now_utc >= expiry
+            else "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY"
+        )
     checks = {
         key: ("MATCHED_CALLER_SUPPLIED_NOT_AUTHENTICATED"
               if key in observations else "NOT_SUPPLIED")
@@ -90,6 +118,12 @@ def prism_check_only(handoff: dict[str, Any],
         "pre_identity_status": "PRE_IDENTITY_READY",
         "identity_status": "OFFICIAL_CAPTURE_AND_REQUEST_CAS_NOT_PROVEN",
         "observations": checks,
+        "artifact_snapshot_freshness": {
+            "evaluated_at_utc": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "roles": freshness,
+            "current_remote_head_verified": False,
+            "remote_artifact_retrieval_verified": False,
+        },
         "digest_roles": {
             "pre_identity_exe_sha256": observations.get("pre_identity_exe_sha256"),
             "pre_identity_pck_sha256": observations.get("pre_identity_pck_sha256"),
