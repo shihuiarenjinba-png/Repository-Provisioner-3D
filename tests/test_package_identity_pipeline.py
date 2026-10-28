@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -140,9 +141,19 @@ class FakeFactoryTransport:
             raise self.error
         if run_id != 123 or artifact_id != 456:
             raise HoldError("fixture requires explicit authenticated artifact IDs")
+        # Fixture transport supplies the same canonical-payload contract as
+        # authenticated transport, without claiming any live GitHub evidence.
+        dest = work_root / "authenticated-factory-payload"
+        dest.mkdir(parents=True, exist_ok=True)
+        canonical = dest / "candidate.exe"
+        shutil.copyfile(_package["path"], canonical)
         return {"status": "PRE_IDENTITY_BYTES_CORRELATED",
                 "evidence_scope": "FACTORY_ARTIFACT_BYTES_NOT_STORE_E2E",
-                "factory_build_head": "b" * 40, "post_identity_ready": False}
+                "factory_build_head": "b" * 40, "post_identity_ready": False,
+                "payload_authority": "AUTHENTICATED_FACTORY_ARTIFACT",
+                "canonical_package_path": str(canonical),
+                "exe_sha256": _package["sha256"],
+                "external_pck_sha256": None}
 
 
 class ContractValidationTests(unittest.TestCase):
