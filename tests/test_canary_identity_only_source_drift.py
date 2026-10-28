@@ -33,15 +33,15 @@ def fake_git(job, *, changed=None, count="1", base=PIN, second_head=DRIFT):
         if command[:2] == ["git", "ls-remote"]:
             reads += 1
             sha = DRIFT if reads == 1 else second_head
-            return f"{sha} refs/heads/{job.source_branch}\\n"
+            return f"{sha} refs/heads/{job.source_branch}\n"
         if command[:2] == ["git", "merge-base"]:
-            return base + "\\n"
+            return base + "\n"
         if command[:3] == ["git", "rev-list", "--count"]:
-            return count + "\\n"
+            return count + "\n"
         if command[:3] == ["git", "diff", "--name-status"]:
-            return changed if changed is not None else f"A\\t{IDENTITY}\\n"
+            return changed if changed is not None else f"A\t{IDENTITY}\n"
         if command[:3] == ["git", "rev-parse", "HEAD"]:
-            return job.source_sha + "\\n"
+            return job.source_sha + "\n"
         return ""
     return run, calls
 
@@ -64,9 +64,9 @@ class IdentityOnlyDriftTests(unittest.TestCase):
 
     def test_rejects_source_code_changes_multiple_commits_and_wrong_ancestry(self):
         for options in (
-            {"changed": "M\\tproducts/prism-route-3d/scripts/main.gd\\n"},
-            {"changed": f"M\\t{IDENTITY}\\n"},
-            {"changed": f"A\\t{IDENTITY}\\nM\\tREADME.md\\n"},
+            {"changed": "M\tproducts/prism-route-3d/scripts/main.gd\n"},
+            {"changed": f"M\t{IDENTITY}\n"},
+            {"changed": f"A\t{IDENTITY}\nM\tREADME.md\n"},
             {"count": "2"},
             {"base": "f" * 40},
             {"second_head": "e" * 40},
