@@ -51,7 +51,8 @@ class FactoryExportTransport:
                 or type(artifact_id) is not int or artifact_id <= 0):
             raise HoldError("Factory export evidence HOLD: --factory-run-id and --factory-artifact-id required")
         repo = job.source_repository
-        if not isinstance(repo, str) or not REPO.fullmatch(repo):
+        if (not isinstance(repo, str) or not REPO.fullmatch(repo)
+                or any(part in {".", ".."} for part in repo.split("/"))):
             raise HoldError("Factory export evidence HOLD: invalid Factory repository")
         prefix = f"/repos/{repo}/actions"
         run = self._json(f"{prefix}/runs/{run_id}")
@@ -70,7 +71,8 @@ class FactoryExportTransport:
                          f"{prefix}/artifacts/{artifact_id}/zip"],
                         stdout=stream, stderr=subprocess.DEVNULL, timeout=300, check=False,
                     )
-                if result.returncode or not 0 < archive.stat().st_size <= MAX_ARCHIVE_BYTES:
+                if (result.returncode or archive.stat().st_size != size
+                        or not 0 < archive.stat().st_size <= MAX_ARCHIVE_BYTES):
                     raise HoldError("Factory export evidence HOLD: GitHub artifact download failed")
             except (OSError, subprocess.TimeoutExpired) as exc:
                 raise HoldError("Factory export evidence HOLD: GitHub artifact unavailable") from exc
