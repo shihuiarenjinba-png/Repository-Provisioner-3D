@@ -66,6 +66,38 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
             for field in ("run_id", "artifact_id")
         ):
             raise HandoffContractError(f"missing execution evidence: {key}")
+    # A PRE receipt and unsigned QA artifact must be traceable to the same
+    # observed Provisioner commit. This checks the handoff snapshot's internal
+    # consistency only; the GitHub API observations still need authentication.
+    expected_artifact_names = {
+        "provisioner_pre_identity_evidence": "prism-route-3d-provisioner-pre-identity",
+        "real_makeappx_qa_evidence": "prism-route-3d-real-makeappx-unsigned-not-store",
+    }
+    observed_heads = set()
+    observed_pairs = set()
+    for key, name in expected_artifact_names.items():
+        item = data[key]
+        if item.get("artifact_name") != name:
+            raise HandoffContractError(f"wrong artifact kind: {key}")
+        if item.get("artifact_expired_at_observation") is not False:
+            raise HandoffContractError(f"artifact expired or expiry unverified: {key}")
+        head = item.get("run_head_sha")
+        if not isinstance(head, str) or not _SHA40.fullmatch(head):
+            raise HandoffContractError(f"invalid observed run HEAD: {key}")
+        expiry = item.get("artifact_expires_at")
+        if not isinstance(expiry, str) or not re.fullmatch(
+            r"20[0-9]{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]Z", expiry
+        ):
+            raise HandoffContractError(f"missing artifact expiry metadata: {key}")
+        observed_heads.add(head)
+        pair = (item["run_id"], item["artifact_id"])
+        if pair in observed_pairs:
+            raise HandoffContractError("duplicate PRE/QA artifact provenance")
+        observed_pairs.add(pair)
+    if len(observed_heads) != 1:
+        raise HandoffContractError("PRE/QA evidence comes from different Provisioner HEADs")
+    if factory.get("artifact_expired_at_observation") is not False:
+        raise HandoffContractError("Factory export artifact expired or expiry unverified")
     qa = data["real_makeappx_qa_evidence"]
     if qa.get("qa_only") is not True or qa.get("signed") is not False or qa.get("store_ready") is not False:
         raise HandoffContractError("unsigned MakeAppx QA cannot be promoted to Store")
