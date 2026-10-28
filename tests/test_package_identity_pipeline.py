@@ -273,13 +273,38 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertEqual(contract["source_branch"], config().source_branch)
         self.assertEqual(contract["source_sha"], SHA)
         self.assertEqual(contract["slug"], "sample-product")
-        self.assertEqual(contract["package_sha256"], "d" * 64)
+        # A pre-Identity Godot EXE must never be advertised as a Store MSIX.
+        self.assertIsNone(contract["package_sha256"])
+        self.assertEqual(contract["package_sha256_kind"], "POST_IDENTITY_MSIX_ONLY")
+        self.assertEqual(contract["pre_identity_exe_sha256"], "d" * 64)
+        self.assertIsNone(contract["msix_package_sha256"])
+        self.assertEqual(contract["intake_status"], "HOLD_PRE_MSIX")
+        self.assertFalse(contract["store_ready"])
+        self.assertIsNone(contract["identity_cas_receipt"])
         self.assertEqual(contract["package_family_name"], evidence()["package_family_name"])
         self.assertEqual(contract["package_sid"], evidence()["package_sid"])
-        self.assertEqual(contract["signature_status"], "UNSIGNED")
+        self.assertEqual(contract["signature_status"], "NOT_APPLICABLE_PRE_MSIX")
+        self.assertEqual(contract["local_signature_status"], "UNSIGNED")
         self.assertEqual(contract["local_package_sha256"], "d" * 64)
         self.assertEqual(contract["identity"]["package_sid"], evidence()["package_sid"])
         self.assertTrue(contract["operator_verified"])
+
+
+    def test_windows_all_auto_msix_digest_is_not_replaced_with_exe_hold(self):
+        contract = windows_all_auto_record(Job.validate(job(), config()), evidence(), local_package("msix"))
+        self.assertEqual(contract["package_sha256"], "d" * 64)
+        self.assertEqual(contract["local_package_kind"], "msix")
+        self.assertEqual(contract["signature_status"], "UNSIGNED")
+        self.assertNotIn("pre_identity_exe_sha256", contract)
+        self.assertNotIn("intake_status", contract)
+
+    def test_pre_identity_exe_never_has_msix_sha_even_with_official_reference(self):
+        contract = windows_all_auto_record(Job.validate(job(), config()), evidence(), local_package("exe"))
+        self.assertIsNone(contract["package_sha256"])
+        self.assertEqual(contract["pre_identity_exe_sha256"], contract["local_package_sha256"])
+        self.assertNotEqual(contract["signature_status"], contract["local_signature_status"])
+        self.assertEqual(contract["intake_status"], "HOLD_PRE_MSIX")
+        self.assertIsNone(contract["identity_cas_receipt"])
 
 
 class GitHubReturnTests(unittest.TestCase):
