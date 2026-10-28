@@ -827,14 +827,17 @@ class GitHubReturnClient:
 class Provisioner:
     def __init__(self, config: ProductConfig, state_dir: Path, work_dir: Path,
                  source: SourceManager | None = None, builder: PackageBuilder | None = None,
-                 identity: OfficialIdentityProvider | None = None, github: GitHubReturnClient | None = None):
+                 identity: OfficialIdentityProvider | None = None, github: GitHubReturnClient | None = None,
+                 factory_transport: Any | None = None):
         self.config = config
         self.ledger = Ledger(state_dir / config.product_type.lower())
         self.work_dir = work_dir / config.product_type.lower()
         self.source, self.builder = source or SourceManager(), builder or PackageBuilder()
         self.identity, self.github = identity or OfficialIdentityProvider(None), github or GitHubReturnClient()
+        self.factory_transport = factory_transport
 
-    def run(self, raw: dict[str, Any], apply: bool = False) -> dict[str, Any]:
+    def run(self, raw: dict[str, Any], apply: bool = False, *,
+            factory_run_id: int | None = None, factory_artifact_id: int | None = None) -> dict[str, Any]:
         started = utc_now()
         try:
             job = Job.validate(raw, self.config)
@@ -853,6 +856,7 @@ class Provisioner:
                     self._save(job, response, {"stage": "DRY_RUN_VALIDATED"})
                     return response
                 package: dict[str, Any] | None = None
+                factory_evidence: dict[str, Any] | None = None
                 try:
                     root = self.work_dir / hashlib.sha256(job.request_id.encode()).hexdigest()[:16]
                     source_dir = self.source.acquire(job, root / "source")
@@ -861,13 +865,22 @@ class Provisioner:
                         built_path,
                         godot_export=(job.product_type == "GAME_3D" and built_path.suffix.lower() == ".exe"),
                     )
+                    if job.product_type == "GAME_3D" and package.get("kind") == "exe":
+                        # Fail closed before official Identity: only authenticated
+                        # GitHub run + artifact metadata may establish provenance.
+                        if self.factory_transport is None:
+                            from factory_export_transport import FactoryExportTransport
+                            self.factory_transport = FactoryExportTransport()
+                        factory_evidence = self.factory_transport.verify(
+                            job, package, run_id=factory_run_id,
+                            artifact_id=factory_artifact_id, work_root=root / "factory-evidence")
                     official = self.identity.lookup(job)
                     comparison = compare_package_identity(package, official, job.product_type)
                     contract = windows_all_auto_record(job, official, package)
                     returned = self.github.return_identity(job, self.config, official, package, apply=apply)
                     status = "COMPLETED" if returned["status"] in {"APPLIED", "EXISTING_VERIFIED"} else "HOLD"
                     response = self._base_response(job, status, started)
-                    response.update(package=package, official_identity={
+                    response.update(package=package, factory_export_evidence=factory_evidence, official_identity={
                         "status": "VERIFIED_OPERATOR_EXPORT",
                         "package_comparison": comparison,
                         **{k: official[k] for k in
@@ -881,9 +894,11 @@ class Provisioner:
                     self._save(job, response, {"stage": returned["status"], "package_sha256": package["sha256"]})
                     return response
                 except ProvisionerError as exc:
-                    return self._record_error(job, exc, started, previous, package=package)
+                    return self._record_error(job, exc, started, previous, package=package,
+                                              factory_evidence=factory_evidence)
                 except Exception as exc:
-                    return self._record_error(job, ProvisionerError(f"Unexpected local failure: {type(exc).__name__}"), started, previous, package=package)
+                    return self._record_error(job, ProvisionerError(f"Unexpected local failure: {type(exc).__name__}"), started, previous,
+                                              package=package, factory_evidence=factory_evidence)
         except ProvisionerError as exc:
             return self._error_response(raw, exc, started)
 
@@ -902,6 +917,7 @@ class Provisioner:
                 "github_return": {"status": "NOT_APPLIED", "repository": self.config.source_repository,
                                   "branch": job.source_branch,
                                   "path": f"products/{job.slug}/store/approved-identity.json", "commit_sha": None},
+                "factory_export_evidence": None,
                 "windows_all_auto_record": None, "errors": [], "next_stage": None}
 
     def _error_response(self, raw: dict[str, Any], exc: ProvisionerError, started: str) -> dict[str, Any]:
@@ -919,12 +935,15 @@ class Provisioner:
 
     def _record_error(self, job: Job, exc: ProvisionerError, started: str,
                       previous: dict[str, Any] | None,
-                      package: dict[str, Any] | None = None) -> dict[str, Any]:
+                      package: dict[str, Any] | None = None,
+                      factory_evidence: dict[str, Any] | None = None) -> dict[str, Any]:
         response = self._base_response(job, exc.status, started)
         if package is not None:
             # Preserve local EXE/PCK byte evidence across an external Identity HOLD.
             # This is inspection evidence, never an accepted product or E2E receipt.
             response["package"] = package
+        if factory_evidence is not None:
+            response["factory_export_evidence"] = factory_evidence
         response["errors"], response["next_stage"] = [redact(str(exc))], exc.next_stage
         self._save(job, response, {"stage": exc.status}, attempts=int((previous or {}).get("attempts", 0)) + 1)
         return response
@@ -949,13 +968,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--work-dir", type=Path, default=Path(".provisioner-work"))
     parser.add_argument("--official-identity", type=Path,
                         help="Operator export from an authenticated Partner Center session; never source-controlled")
+    parser.add_argument("--factory-run-id", type=int,
+                        help="Authenticated Factory Godot export GitHub Actions run ID (3D EXE only)")
+    parser.add_argument("--factory-artifact-id", type=int,
+                        help="Authenticated Factory export GitHub artifact ID (3D EXE only)")
     parser.add_argument("--apply", action="store_true", help="Atomically write to the configured Factory work branch")
     args = parser.parse_args(argv)
     started = utc_now()
     try:
         config, raw = ProductConfig.load(args.config), load_json(args.input)
         result = Provisioner(config, args.state_dir, args.work_dir,
-                             identity=OfficialIdentityProvider(args.official_identity)).run(raw, apply=args.apply)
+                             identity=OfficialIdentityProvider(args.official_identity)).run(
+                                 raw, apply=args.apply, factory_run_id=args.factory_run_id,
+                                 factory_artifact_id=args.factory_artifact_id)
     except ProvisionerError as exc:
         result = {"schema_version": SCHEMA_VERSION, "request_id": None, "product_type": None,
                   "status": exc.status, "errors": [redact(str(exc))], "started_at": started, "finished_at": utc_now()}
