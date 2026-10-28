@@ -108,7 +108,8 @@ def verify_factory_export_artifact(job, local_package: dict, archive_path: Path,
                     or set(build_head) == {"0"}
                     or workflow_run.get("head_sha") != build_head
                     or workflow_run.get("head_branch") != job.source_branch
-                    or workflow_run.get("head_repository", {}).get("full_name") != job.source_repository):
+                    or not isinstance(workflow_run.get("head_repository"), dict)
+                    or workflow_run["head_repository"].get("full_name") != job.source_repository):
                 _reject("factory_build_head does not match the independent GitHub run")
             if (local_package.get("kind") != "exe"
                     or local_package.get("godot_export", {}).get("evidence_scope")
