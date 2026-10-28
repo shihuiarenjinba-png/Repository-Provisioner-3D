@@ -25,3 +25,20 @@ python provisioner.py --input job.json --output result.json `
 > together with the authenticated Partner Center evidence fields. This is
 > required by the Factory's fail-closed MSIX builder; Identity remains HOLD
 > without genuine operator-supplied evidence and an exact source HEAD.
+
+
+## 3D Factory export provenance gate (Identity 前)
+
+GAME_3D の `candidate.exe` を検査した場合、Identity 照会前に、独立した GitHub Actions 実行情報と Factory export Artifact ZIP の実バイトを検証します。これは実製品が Factory から生成された後の契約であり、現状の非製品 Godot/MakeAppx fixture を販売製品として承認するものではありません。
+
+```powershell
+gh auth status --hostname github.com
+python provisioner.py --input job.json --output result.json `
+  --factory-run-id <FACTORY_RUN_ID> `
+  --factory-artifact-id <FACTORY_ARTIFACT_ID> `
+  --official-identity C:\secure\partner-center-evidence.json
+```
+
+`--factory-run-id` と `--factory-artifact-id` は、受け入れ済み Factory 製品の実際の export run と `godot-3d-factory-export-evidence` Artifact を指定します。GitHub CLI `gh api` は認証済みの GitHub REST API から run と Artifact のメタデータを別々に取得し、Artifact ZIP をダウンロードします。検証器は ZIP の GitHub SHA-256 digest、run 成功状態、`request_id`・`slug`・不変の `source_sha`、別管理の `factory_build_head`、EXE/PCK サイズと SHA-256 を照合します。欠落・不一致・期限切れ・ダウンロード失敗時は **Identity 照会前に HOLD** です。
+
+Identity が未取得でも `factory_export_evidence` に `PRE_IDENTITY_BYTES_CORRELATED` 証拠を保持できます。ただしこの証拠は `POST_IDENTITY_READY`、実製品MSIX、GPU、Windows install、GUI、Store E2E の合格ではありません。新3D製品生成と120時間ゲートは引き続き HOLD です。
