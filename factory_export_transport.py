@@ -23,6 +23,19 @@ REPO = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 MAX_ARCHIVE_BYTES = 2_200_000_000
 
 
+def _archive_sha256(path: Path) -> str:
+    """Hash authenticated ZIPs in bounded memory, even at the size cap.
+
+    Never use Path.read_bytes() here: a valid artifact may be hundreds of MB,
+    and the transport limit allows up to 2.2 GB.
+    """
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 class FactoryExportTransport:
     def __init__(self, gh: str | None = None):
         self.gh = gh
@@ -85,7 +98,7 @@ class FactoryExportTransport:
             # check, not the package bytes used downstream.
             digest = artifact.get("digest")
             if (not isinstance(digest, str) or not digest.startswith("sha256:")
-                    or hashlib.sha256(archive.read_bytes()).hexdigest() != digest[7:]):
+                    or _archive_sha256(archive) != digest[7:]):
                 raise HoldError("Factory export evidence HOLD: authenticated ZIP digest mismatch")
             payload_dir = Path(temporary) / "payload"
             payload_dir.mkdir()
