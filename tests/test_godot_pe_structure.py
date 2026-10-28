@@ -63,6 +63,28 @@ class GodotPeStructureTests(unittest.TestCase):
         with self.assertRaisesRegex(HoldError, "section|PE"):
             self.inspect(bytes(data))
 
+    def test_section_raw_data_past_end_of_file_is_rejected(self):
+        data = bytearray(fake_pe_x64())
+        # PE section table starts at 0x80 + 24 + 0xf0 = 0x188.
+        data[0x188 + 16:0x188 + 20] = (64).to_bytes(4, "little")
+        data[0x188 + 20:0x188 + 24] = (0x300).to_bytes(4, "little")
+        with self.assertRaisesRegex(HoldError, "section|raw|PE"):
+            self.inspect(bytes(data))
+
+    def test_section_raw_data_with_zero_file_pointer_is_rejected(self):
+        data = bytearray(fake_pe_x64())
+        data[0x188 + 16:0x188 + 20] = (64).to_bytes(4, "little")
+        data[0x188 + 20:0x188 + 24] = (0).to_bytes(4, "little")
+        with self.assertRaisesRegex(HoldError, "section|raw|PE"):
+            self.inspect(bytes(data))
+
+    def test_bounded_section_raw_data_is_accepted_as_static_evidence_only(self):
+        data = bytearray(fake_pe_x64())
+        data[0x188 + 16:0x188 + 20] = (32).to_bytes(4, "little")
+        data[0x188 + 20:0x188 + 24] = (0x1c0).to_bytes(4, "little")
+        self.assertEqual(self.inspect(bytes(data))["godot_export"]["evidence_scope"],
+                         "LOCAL_EXPORT_NOT_INDEPENDENT")
+
     def test_export_rejects_mz_text_before_pck_check(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
