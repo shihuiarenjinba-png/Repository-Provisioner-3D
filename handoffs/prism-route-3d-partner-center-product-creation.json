@@ -36,15 +36,24 @@
     "run_id": 40640951915,
     "artifact_id": 12795476435,
     "artifact_name": "godot-3d-factory-export-evidence",
-    "authenticated_download_verified": true
+    "authenticated_download_verified": true,
+    "artifact_expired_at_observation": false
   },
   "provisioner_pre_identity_evidence": {
-    "run_id": 40656670416,
-    "artifact_id": 12802052951
+    "run_id": 40704987631,
+    "artifact_id": 12822363621,
+    "artifact_name": "prism-route-3d-provisioner-pre-identity",
+    "run_head_sha": "63c8ca27c17da5875919cf9503ff5ede04b76aaf",
+    "artifact_expired_at_observation": false,
+    "artifact_expires_at": "2026-11-04T14:21:24Z"
   },
   "real_makeappx_qa_evidence": {
-    "run_id": 40656670456,
-    "artifact_id": 12801654639,
+    "run_id": 40704987412,
+    "artifact_id": 12822614003,
+    "artifact_name": "prism-route-3d-real-makeappx-unsigned-not-store",
+    "run_head_sha": "63c8ca27c17da5875919cf9503ff5ede04b76aaf",
+    "artifact_expired_at_observation": false,
+    "artifact_expires_at": "2026-11-02T14:21:25Z",
     "qa_only": true,
     "store_ready": false,
     "signed": false
@@ -88,5 +97,6 @@
     "signature_verification_receipt": null,
     "msix_safety_qa_receipt": null,
     "intake_status": "HOLD_PRE_MSIX"
-  }
+  },
+  "evidence_snapshot_note": "Observed via GitHub Actions artifacts API at 2026-10-29 00:26 JST; run-head correlations are prior-commit evidence only, not new-HEAD CI, authenticated Partner Center Identity, CAS, signed MSIX or Windows intake."
 }
