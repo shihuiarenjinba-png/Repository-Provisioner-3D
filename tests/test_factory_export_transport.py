@@ -10,7 +10,7 @@ import unittest
 import zipfile
 from unittest.mock import patch
 
-from factory_export_transport import FactoryExportTransport
+from factory_export_transport import FactoryExportTransport, _archive_sha256
 from package_identity_provisioner import HoldError, inspect_package
 from test_godot_pe_structure import fake_pe_x64
 
@@ -18,6 +18,34 @@ from test_godot_pe_structure import fake_pe_x64
 class FactoryTransportTests(unittest.TestCase):
     def setUp(self):
         self.job = SimpleNamespace(source_repository="shihuiarenjinba-png/3d-game-factory")
+
+    def test_archive_sha256_streams_without_reading_entire_zip(self):
+        # The transport accepts archives up to 2.2 GB; do not allocate them
+        # as one bytes object while checking the authenticated digest.
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "artifact.zip"
+            payload = b"streaming-digest-check" * 200_000
+            archive.write_bytes(payload)
+            with patch.object(Path, "read_bytes", side_effect=AssertionError("unbounded ZIP read")):
+                self.assertEqual(_archive_sha256(archive), hashlib.sha256(payload).hexdigest())
+            archive.write_bytes(payload + b"tampered")
+            self.assertNotEqual(_archive_sha256(archive), hashlib.sha256(payload).hexdigest())
+
+    def test_archive_digest_mismatch_holds_before_payload_extraction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = b"untrusted-archive-data"
+            def fake_download(command, **kwargs):
+                kwargs["stdout"].write(archive)
+                return subprocess.CompletedProcess(command, 0)
+            with patch.object(FactoryExportTransport, "_json",
+                              side_effect=[{"id": 42}, {"id": 7,
+                                "size_in_bytes": len(archive), "digest": "sha256:" + "0" * 64}]), \\
+                 patch("factory_export_transport.subprocess.run", side_effect=fake_download), \\
+                 patch("factory_export_transport.verify_factory_export_artifact") as verify:
+                with self.assertRaisesRegex(HoldError, "authenticated ZIP digest mismatch"):
+                    FactoryExportTransport("gh").verify(
+                        self.job, {}, run_id=42, artifact_id=7, work_root=Path(tmp))
+                verify.assert_not_called()
 
     def test_missing_ids_holds_without_github_call(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -95,7 +123,8 @@ class FactoryTransportTests(unittest.TestCase):
 
             with (patch.object(FactoryExportTransport, "_json", side_effect=metadata),
                   patch("factory_export_transport.subprocess.run", side_effect=fake_download),
-                  patch("package_identity_provisioner.signature_status", return_value="UNSIGNED")):
+                  patch("package_identity_provisioner.signature_status", return_value="UNSIGNED"),
+                  patch.object(Path, "read_bytes", side_effect=AssertionError("unbounded ZIP read"))):
                 evidence = FactoryExportTransport("gh").verify(
                     self.job, local, run_id=42, artifact_id=7, work_root=root / "work")
             self.assertEqual(evidence["status"], "PRE_IDENTITY_BYTES_CORRELATED")
