@@ -30,6 +30,15 @@ class FactoryTransportTests(unittest.TestCase):
                     FactoryExportTransport("gh").verify(
                         self.job, {}, run_id=42, artifact_id=7, work_root=Path(tmp))
 
+    def test_malformed_artifact_size_is_hold_not_unexpected_failure(self):
+        for bad in ("10", None, True, [], 0, -1):
+            with self.subTest(size=bad), tempfile.TemporaryDirectory() as tmp:
+                with patch.object(FactoryExportTransport, "_json",
+                                  side_effect=[{"id": 42}, {"id": 7, "size_in_bytes": bad}]):
+                    with self.assertRaisesRegex(HoldError, "metadata mismatch"):
+                        FactoryExportTransport("gh").verify(
+                            self.job, {}, run_id=42, artifact_id=7, work_root=Path(tmp))
+
     def test_success_uses_authenticated_independent_metadata_and_exact_zip(self):
         with tempfile.TemporaryDirectory() as tmp:
             run = {"id": 42}
