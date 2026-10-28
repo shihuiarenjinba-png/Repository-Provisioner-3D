@@ -330,6 +330,11 @@ class PackageBuilder:
         raise HoldError("No allowlisted Windows build entrypoint exists in the pinned source")
 
     def _build_godot(self, source: Path, output_dir: Path) -> None:
+        # SourceManager may return a relative work path. Godot resolves --path
+        # relative to the subprocess cwd, so passing that relative path twice
+        # incorrectly points outside the project. Pin both to absolute paths.
+        source = source.resolve(strict=True)
+        output_dir = output_dir.resolve(strict=True)
         project, presets = source / "project.godot", source / "export_presets.cfg"
         if project.is_symlink() or presets.is_symlink():
             raise HoldError("Godot project or export preset is symlinked")
