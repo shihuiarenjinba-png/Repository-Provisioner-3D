@@ -334,7 +334,7 @@ class PackageBuilder:
         # relative to the subprocess cwd, so passing that relative path twice
         # incorrectly points outside the project. Pin both to absolute paths.
         source = source.resolve(strict=True)
-        output_dir = output_dir.resolve(strict=True)
+        output_dir = output_dir.resolve(strict=False)
         project, presets = source / "project.godot", source / "export_presets.cfg"
         if project.is_symlink() or presets.is_symlink():
             raise HoldError("Godot project or export preset is symlinked")
