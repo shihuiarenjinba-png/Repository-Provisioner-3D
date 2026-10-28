@@ -99,5 +99,27 @@ class GodotPckPayloadTests(unittest.TestCase):
                 self.build(project, output, exe=False, pck=True)
 
 
+    def test_non_windows_exe_magic_is_hold_after_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, output = self.make_project(Path(tmp))
+            def fake_export(_command, _cwd, _timeout):
+                (output / "candidate.exe").write_bytes(b"NOT_A_WINDOWS_EXE")
+                (output / "candidate.pck").write_bytes(b"GDPC-resources")
+            with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
+                PackageBuilder, "_run", side_effect=fake_export
+            ):
+                with self.assertRaisesRegex(HoldError, "MZ header"):
+                    PackageBuilder()._build_godot(project, output)
+
+    def test_non_windows_exe_magic_is_hold_at_inspection(self):
+        from package_identity_provisioner import inspect_package
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "candidate.exe"
+            exe.write_bytes(b"NOT_A_WINDOWS_EXE")
+            exe.with_suffix(".pck").write_bytes(b"GDPC-resources")
+            with self.assertRaisesRegex(HoldError, "MZ header"):
+                inspect_package(exe, godot_export=True)
+
+
 if __name__ == "__main__":
     unittest.main()
