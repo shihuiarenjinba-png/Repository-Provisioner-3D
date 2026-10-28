@@ -111,3 +111,12 @@ jobs:
             canary-user-id-request.json
           if-no-files-found: warn
           retention-days: 7
+
+      - name: Preserve local re-export PCK for deterministic-byte diagnosis (QA only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-route-3d-independent-pck-diagnostic
+          path: .provisioner-work/game_3d/*/artifacts/candidate.pck
+          if-no-files-found: warn
+          retention-days: 1
