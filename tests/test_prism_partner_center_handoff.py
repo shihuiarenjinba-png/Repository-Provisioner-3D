@@ -105,6 +105,31 @@ class PrismHandoffTests(unittest.TestCase):
         with self.assertRaisesRegex(HandoffContractError, "duplicate"):
             validate_prism_handoff(d)
 
+    def test_all_three_zip_archive_metadata_are_fail_closed(self):
+        # The ZIP digest is NOT the EXE, PCK or MSIX payload digest.
+        cases = (
+            ("artifact_archive_digest", None),
+            ("artifact_archive_digest", "a" * 64),
+            ("artifact_archive_digest", "sha256:" + "g" * 64),
+            ("artifact_archive_digest", "sha256:" + "a" * 63),
+            ("artifact_archive_size_bytes", 0),
+            ("artifact_archive_size_bytes", -1),
+            ("artifact_archive_size_bytes", True),
+            ("artifact_archive_size_bytes", "31022039"),
+            ("artifact_expires_at", "2026-02-31T00:00:00Z"),
+            ("artifact_expires_at", "2026-13-01T00:00:00Z"),
+            ("artifact_expires_at", None),
+        )
+        for section in ("factory_export_evidence",
+                        "provisioner_pre_identity_evidence",
+                        "real_makeappx_qa_evidence"):
+            for key, value in cases:
+                with self.subTest(section=section, key=key, value=value):
+                    d = copy.deepcopy(self.handoff)
+                    d[section][key] = value
+                    with self.assertRaises(HandoffContractError):
+                        validate_prism_handoff(d)
+
     def test_manual_reference_does_not_authorize_store_pipeline(self):
         for key, value in (
             ("local_operator_identity_capture", "PASS"),
