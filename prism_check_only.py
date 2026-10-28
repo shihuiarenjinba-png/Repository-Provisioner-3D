@@ -95,9 +95,17 @@ def prism_check_only(handoff: dict[str, Any],
             "EXPIRED_REQUIRES_REMOTE_REFRESH" if now_utc >= expiry
             else "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY"
         )
+    # Pinned identifiers are compared for equality. Payload digests have
+    # no trusted reference in this handoff: syntax checks are NOT matches.
+    format_only = {
+        "pre_identity_exe_sha256", "pre_identity_pck_sha256",
+        "unsigned_qa_msix_sha256",
+    }
     checks = {
-        key: ("MATCHED_CALLER_SUPPLIED_NOT_AUTHENTICATED"
-              if key in observations else "NOT_SUPPLIED")
+        key: ("NOT_SUPPLIED" if key not in observations
+              else "FORMAT_ONLY_CALLER_SUPPLIED_NOT_AUTHENTICATED"
+              if key in format_only
+              else "MATCHED_CALLER_SUPPLIED_NOT_AUTHENTICATED")
         for key in sorted(_ALLOWED)
     }
     return {
