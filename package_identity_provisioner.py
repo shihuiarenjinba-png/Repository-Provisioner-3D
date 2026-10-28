@@ -284,7 +284,7 @@ class SourceManager:
             except ProvisionerError as exc:
                 raise ConflictError("Cannot prove Identity-only source branch drift") from exc
             identity_path = "products/prism-route-3d/store/approved-identity.json"
-            if base != job.source_sha or count != "1" or changed != f"A\\t{identity_path}":
+            if base != job.source_sha or count != "1" or changed != f"A\t{identity_path}":
                 raise ConflictError("Factory source branch drift is not exactly one Identity-only commit")
             reread = self._run(["git", "ls-remote", "origin", branch_ref], 60, destination).strip().split()
             if len(reread) != 2 or reread[0] != remote_head or reread[1] != branch_ref:
