@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0",
+  "handoff_type": "GAME_3D_PARTNER_CENTER_PRODUCT_CREATION",
+  "lane": "GAME_3D",
+  "product": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "request_id": "3d-prism-route-3d-15fdcb52e46e",
+  "source_repository": "shihuiarenjinba-png/3d-game-factory",
+  "source_branch": "codex/3d-canary-prism-route-20261028",
+  "source_sha": "15fdcb52e46e35e6de8e87c55af99719c21e09b9",
+  "factory_build_head": null,
+  "factory_build_head_policy": "Resolve independently from the authenticated Factory Actions run; never infer it from source_sha",
+  "packaging_strategy": "GODOT_WINDOWS_EXE_PCK_TO_MAKEAPPX_STANDARD_MSIX",
+  "registration_type": "MSIX_OR_PWA_GAME",
+  "partner_center_selection": "MSIX or PWA game",
+  "partner_center_product_status": "NOT_CREATED",
+  "partner_center_observation": "User-confirmed 2026-10-28 17:44 JST: Apps and games Overview search for Prism Route 3D returned 0 results; no product creation performed by this lane",
+  "identity_status": "IDENTITY_NOT_AVAILABLE",
+  "pre_identity_status": "PRE_IDENTITY_READY",
+  "post_identity_status": "HOLD",
+  "allow_local_product_creation": true,
+  "local_product_creation_owner": "36-minute Windows/local lane",
+  "local_product_creation_scope": "Create exactly this one Partner Center product using MSIX or PWA game; retrieve official Identity and return evidence. Do not submit Store package.",
+  "identity_return_target": "products/prism-route-3d/store/approved-identity.json",
+  "identity_fields_required": {
+    "store_id": null,
+    "reserved_display_name": null,
+    "package_identity_name": null,
+    "publisher": null,
+    "publisher_display_name": null,
+    "pfn": null,
+    "package_sid": null
+  },
+  "xbox_identity_fields_required": false,
+  "factory_export_evidence": {
+    "run_id": 40640951915,
+    "artifact_id": 12795476435,
+    "artifact_name": "godot-3d-factory-export-evidence",
+    "authenticated_download_verified": true
+  },
+  "provisioner_pre_identity_evidence": {
+    "run_id": 40656670416,
+    "artifact_id": 12802052951
+  },
+  "real_makeappx_qa_evidence": {
+    "run_id": 40656670456,
+    "artifact_id": 12801654639,
+    "qa_only": true,
+    "store_ready": false,
+    "signed": false
+  },
+  "controls": {
+    "second_3d_product_allowed": false,
+    "store_submission_allowed": false,
+    "identity_guessing_allowed": false,
+    "main_release_write_allowed": false,
+    "force_push_allowed": false,
+    "auto_merge_allowed": false,
+    "windows_all_auto_intake_status": "HOLD",
+    "local_gpu_install_gui": "DEFERRED_LOCAL_GATE"
+  },
+  "acceptance_conditions": [
+    "Verify current source_branch/source_sha and independently authenticated factory_build_head before applying Identity",
+    "Partner Center product must be created before claiming WAITING_USER_IDENTITY",
+    "Read Store ID, reserved display name, Package Identity Name, Publisher, Publisher Display Name, PFN and Package SID from official Partner Center evidence; do not guess",
+    "Validate returned Identity and CAS write only to identity_return_target on exact safe source_branch",
+    "Build and validate post-Identity MSIX separately; never treat pre-Identity EXE SHA as MSIX SHA",
+    "Windows-all-auto intake remains unproven until an actual post-Identity MSIX and independently checked SHA/manifest/payload/signature evidence are available"
+  ]
+}
