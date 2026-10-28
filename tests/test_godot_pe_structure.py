@@ -97,7 +97,8 @@ class GodotPeStructureTests(unittest.TestCase):
                 encoding="utf-8",
             )
             def fake_run(command, _cwd, _timeout):
-                Path(command[-1]).write_bytes(b"MZ-not-a-real-PE")
+                if "--export-release" in command:
+                    Path(command[-1]).write_bytes(b"MZ-not-a-real-PE")
             with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
                 PackageBuilder, "_run", side_effect=fake_run
             ):

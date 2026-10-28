@@ -18,15 +18,18 @@ class RelativeGodotExportTests(unittest.TestCase):
             seen=[]
             def run(command,cwd,timeout):
                 seen.append((command,cwd))
-                target=Path(command[-1])
                 self.assertTrue(Path(command[command.index("--path")+1]).is_absolute())
-                self.assertTrue(target.is_absolute())
                 self.assertEqual(cwd,source.resolve())
-                target.write_bytes(b"MZ"+b"\x00"*4096)
-                target.with_suffix(".pck").write_bytes(b"GDPC"+b"\x00"*128)
+                if "--export-release" in command:
+                    target=Path(command[-1])
+                    self.assertTrue(target.is_absolute())
+                    target.write_bytes(b"MZ"+b"\x00"*4096)
+                    target.with_suffix(".pck").write_bytes(b"GDPC"+b"\x00"*128)
             with patch.object(PackageBuilder,"_run",side_effect=run), patch("package_identity_provisioner._validate_godot_windows_pe_x64"):
                 PackageBuilder()._build_godot(source,out)
-            self.assertEqual(len(seen),1)
+            self.assertEqual(len(seen),2)
+            self.assertIn("--import",seen[0][0])
+            self.assertIn("--export-release",seen[1][0])
             self.assertTrue((out/"candidate.exe").is_file())
             self.assertTrue((out/"candidate.pck").is_file())
 

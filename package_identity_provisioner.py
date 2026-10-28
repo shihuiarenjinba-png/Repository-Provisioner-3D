@@ -356,6 +356,10 @@ class PackageBuilder:
                 stale.unlink()
             elif stale.exists():
                 raise HoldError("Godot export target is not a regular file")
+        # Match Factory's real Godot 4.3 import-before-export sequence.
+        # Without this, a fresh Provisioner clone can produce a different PCK
+        # even when request_id and immutable source_sha are identical.
+        self._run([executable, "--headless", "--editor", "--path", str(source), "--import"], source, 1800)
         self._run([executable, "--headless", "--path", str(source), "--export-release", "Windows Desktop", str(target)], source, 1800)
         if target.is_symlink() or not target.is_file() or target.stat().st_size == 0:
             raise HoldError("Godot Windows export produced no nonempty executable")

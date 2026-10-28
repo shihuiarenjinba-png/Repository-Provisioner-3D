@@ -42,7 +42,8 @@ class ProductScopedGodotTests(unittest.TestCase):
 
             def fake_run(command, cwd, timeout):
                 calls.append((command, cwd, timeout))
-                Path(command[-1]).write_bytes(fake_pe_x64(b"new"))
+                if "--export-release" in command:
+                    Path(command[-1]).write_bytes(fake_pe_x64(b"new"))
 
             with patch.dict(os.environ, {"GODOT_EXE": "fake-godot"}):
                 with patch.object(PackageBuilder, "_run", side_effect=fake_run):
@@ -52,10 +53,11 @@ class ProductScopedGodotTests(unittest.TestCase):
 
             self.assertEqual(selected, (output / "candidate.exe").resolve())
             self.assertEqual(selected.read_bytes(), fake_pe_x64(b"new"))
-            self.assertEqual(len(calls), 1)
-            self.assertEqual(calls[0][0][3], str(project))
-            self.assertEqual(calls[0][1], project)
-            self.assertEqual(calls[0][0][-1], str(output / "candidate.exe"))
+            self.assertEqual(len(calls), 2)
+            self.assertIn("--import", calls[0][0])
+            self.assertEqual(calls[1][0][3], str(project))
+            self.assertEqual(calls[1][1], project)
+            self.assertEqual(calls[1][0][-1], str(output / "candidate.exe"))
             self.assertEqual(selected.suffix, ".exe")  # Not a Store-ready MSIX.
 
     def test_unrelated_output_exe_cannot_replace_current_godot_export(self):
@@ -71,7 +73,8 @@ class ProductScopedGodotTests(unittest.TestCase):
             os.utime(unrelated, (4102444800, 4102444800))
 
             def fake_run(command, cwd, timeout):
-                Path(command[-1]).write_bytes(fake_pe_x64(b"-current"))
+                if "--export-release" in command:
+                    Path(command[-1]).write_bytes(fake_pe_x64(b"-current"))
 
             with patch.dict(os.environ, {"GODOT_EXE": "fake-godot"}), patch.object(
                 PackageBuilder, "_run", side_effect=fake_run
