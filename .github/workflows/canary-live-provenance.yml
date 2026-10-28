@@ -1,0 +1,113 @@
+name: Prism Route 3D — live Factory provenance to PRE_IDENTITY
+
+on:
+  push:
+    branches:
+      - codex/e2e-belt-connection-20261027
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-canary-provisioner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GODOT_EXE: /tmp/godot-bin/Godot_v4.3-stable_linux.x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run full offline Provisioner regressions
+        run: python -m unittest discover -s tests -v
+      - name: Install official Godot 4.3 engine and Windows x64 templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 3 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip' -o /tmp/godot.zip
+          curl -fL --retry 3 --retry-delay 3 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz' -o /tmp/templates.tpz
+          mkdir -p /tmp/godot-bin /tmp/godot-tpl "$HOME/.local/share/godot/export_templates/4.3.stable"
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          unzip -q /tmp/templates.tpz -d /tmp/godot-tpl
+          cp -a /tmp/godot-tpl/templates/. "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          chmod +x "$GODOT_EXE"
+          test -s "$HOME/.local/share/godot/export_templates/4.3.stable/windows_release_x86_64.exe"
+      - name: Verify real Factory run and Artifact via authenticated GitHub API
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method GET /repos/shihuiarenjinba-png/3d-game-factory/actions/runs/40640951915 > /tmp/factory-run.json
+          gh api --method GET /repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/12795476435 > /tmp/factory-artifact.json
+          python - <<'PY'
+          import json
+          run=json.load(open('/tmp/factory-run.json'))
+          art=json.load(open('/tmp/factory-artifact.json'))
+          assert run['id']==40640951915 and run['status']=='completed' and run['conclusion']=='success'
+          assert run['head_sha']=='15fdcb52e46e35e6de8e87c55af99719c21e09b9'
+          assert run['head_branch']=='codex/3d-canary-prism-route-20261028'
+          assert art['id']==12795476435 and art['name']=='godot-3d-factory-export-evidence' and art['expired'] is False
+          assert art['workflow_run']['id']==run['id'] and art['digest'].startswith('sha256:')
+          print('PASS: independently authenticated Factory run and artifact metadata')
+          PY
+      - name: Prepare pinned real-canary Provisioner job
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          job=dict(schema_version="1.0",request_id="3d-prism-route-3d-15fdcb52e46e",
+            product_type="GAME_3D",source_factory="3d-game-factory",
+            source_repository="shihuiarenjinba-png/3d-game-factory",
+            source_branch="codex/3d-canary-prism-route-20261028",
+            source_sha="15fdcb52e46e35e6de8e87c55af99719c21e09b9",
+            slug="prism-route-3d",display_name="Prism Route 3D",
+            target_owner="shihuiarenjinba-png",dry_run=False,
+            requested_actions=["BUILD_WINDOWS","INSPECT_PACKAGE","LOOKUP_OFFICIAL_IDENTITY","PROPOSE_GITHUB_RETURN"])
+          open("canary-job.json","w").write(json.dumps(job,indent=2)+"\n")
+          PY
+      - name: Real Provisioner source clone, Godot export, authenticated Artifact download, byte comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python provisioner.py --input canary-job.json --output canary-result.json --factory-run-id 40640951915 --factory-artifact-id 12795476435
+          exit_code=$?
+          set -e
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from registration_router import user_id_request, STANDARD
+          result=json.loads(Path('canary-result.json').read_text())
+          print('Provisioner status:',result.get('status'),'next:',result.get('next_stage'))
+          print('Provisioner errors:',result.get('errors'))
+          evidence=result.get('factory_export_evidence') or {}
+          if evidence.get('status')!='PRE_IDENTITY_BYTES_CORRELATED':
+              raise SystemExit('HOLD: Provisioner did not prove independent real EXE/PCK provenance')
+          if result.get('status')!='HOLD' or result.get('official_identity',{}).get('status')!='UNVERIFIED':
+              raise SystemExit('HOLD: expected safe pre-Identity HOLD without official Store Identity')
+          if result.get('github_return',{}).get('status')!='NOT_APPLIED':
+              raise SystemExit('HOLD: GitHub return was unexpectedly applied')
+          job=json.loads(Path('canary-job.json').read_text())
+          request=user_id_request(job,evidence,strategy=STANDARD,builder='Windows SDK MakeAppx',output_kind='msix',gdk_config=False)
+          if request.get('status')!='USER_ID_REQUEST':
+              raise SystemExit('HOLD: USER_ID_REQUEST contract not ready')
+          Path('canary-user-id-request.json').write_text(json.dumps(request,ensure_ascii=False,indent=2)+'\n')
+          print('PASS: real Provisioner PRE_IDENTITY_BYTES_CORRELATED; official Identity remains HOLD')
+          print(json.dumps(request,ensure_ascii=False,indent=2))
+          PY
+      - name: Preserve PRE_IDENTITY receipt only (no Store credentials)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-route-3d-provisioner-pre-identity
+          path: |
+            canary-job.json
+            canary-result.json
+            canary-user-id-request.json
+          if-no-files-found: warn
+          retention-days: 7
