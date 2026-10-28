@@ -1,4 +1,5 @@
 """Regression: relative Provisioner work roots must not break Godot --path."""
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -25,7 +26,7 @@ class RelativeGodotExportTests(unittest.TestCase):
                     self.assertTrue(target.is_absolute())
                     target.write_bytes(b"MZ"+b"\x00"*4096)
                     target.with_suffix(".pck").write_bytes(b"GDPC"+b"\x00"*128)
-            with patch.object(PackageBuilder,"_run",side_effect=run), patch("package_identity_provisioner._validate_godot_windows_pe_x64"):
+            with patch.dict(os.environ,{"GODOT_EXE":"godot-mock"}), patch.object(PackageBuilder,"_run",side_effect=run), patch("package_identity_provisioner._validate_godot_windows_pe_x64"):
                 PackageBuilder()._build_godot(source,out)
             self.assertEqual(len(seen),2)
             self.assertIn("--import",seen[0][0])
