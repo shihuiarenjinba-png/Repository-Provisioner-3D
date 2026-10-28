@@ -94,7 +94,8 @@ class FactoryTransportTests(unittest.TestCase):
                 return subprocess.CompletedProcess(command, 0)
 
             with (patch.object(FactoryExportTransport, "_json", side_effect=metadata),
-                  patch("factory_export_transport.subprocess.run", side_effect=fake_download)):
+                  patch("factory_export_transport.subprocess.run", side_effect=fake_download),
+                  patch("package_identity_provisioner.signature_status", return_value="UNSIGNED")):
                 evidence = FactoryExportTransport("gh").verify(
                     self.job, local, run_id=42, artifact_id=7, work_root=root / "work")
             self.assertEqual(evidence["status"], "PRE_IDENTITY_BYTES_CORRELATED")
