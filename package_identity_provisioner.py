@@ -256,10 +256,41 @@ class SourceManager:
             destination.parent.mkdir(parents=True, exist_ok=True)
             self._run(["git", "clone", "--filter=blob:none", "--no-checkout",
                        f"https://github.com/{job.source_repository}.git", str(destination)], 180)
-        remote = self._run(["git", "ls-remote", "origin", f"refs/heads/{job.source_branch}"], 60, destination).strip().split()
-        if not remote or remote[0] != job.source_sha:
-            raise ConflictError("Factory work branch HEAD does not match source_sha")
-        self._run(["git", "fetch", "--depth=1", "origin", job.source_sha], 180, destination)
+        branch_ref = f"refs/heads/{job.source_branch}"
+        remote = self._run(["git", "ls-remote", "origin", branch_ref], 60, destination).strip().split()
+        if len(remote) != 2 or not SHA40.fullmatch(remote[0]) or remote[1] != branch_ref:
+            raise ConflictError("Factory work branch HEAD cannot be authenticated")
+        remote_head = remote[0]
+        if remote_head != job.source_sha:
+            # Narrow, evidence-backed exception: this *single* pinned Canary
+            # has a later Identity reference commit on its source branch.
+            # Never use that later commit as product source or CAS approval.
+            if not (
+                job.product_type == "GAME_3D"
+                and job.slug == "prism-route-3d"
+                and job.source_repository == "shihuiarenjinba-png/3d-game-factory"
+                and job.source_branch == "codex/3d-canary-prism-route-20261028"
+                and job.source_sha == "15fdcb52e46e35e6de8e87c55af99719c21e09b9"
+            ):
+                raise ConflictError("Factory work branch HEAD does not match source_sha")
+            self._run(["git", "fetch", "--depth=64", "origin", remote_head], 180, destination)
+            self._run(["git", "fetch", "--depth=64", "origin", job.source_sha], 180, destination)
+            try:
+                base = self._run(["git", "merge-base", job.source_sha, remote_head], 60, destination).strip()
+                count = self._run(["git", "rev-list", "--count",
+                                   f"{job.source_sha}..{remote_head}"], 60, destination).strip()
+                changed = self._run(["git", "diff", "--name-status", "--no-renames",
+                                     job.source_sha, remote_head, "--"], 60, destination).strip()
+            except ProvisionerError as exc:
+                raise ConflictError("Cannot prove Identity-only source branch drift") from exc
+            identity_path = "products/prism-route-3d/store/approved-identity.json"
+            if base != job.source_sha or count != "1" or changed != f"A\\t{identity_path}":
+                raise ConflictError("Factory source branch drift is not exactly one Identity-only commit")
+            reread = self._run(["git", "ls-remote", "origin", branch_ref], 60, destination).strip().split()
+            if len(reread) != 2 or reread[0] != remote_head or reread[1] != branch_ref:
+                raise ConflictError("Factory source branch HEAD changed during provenance check")
+        else:
+            self._run(["git", "fetch", "--depth=1", "origin", job.source_sha], 180, destination)
         self._run(["git", "checkout", "--detach", job.source_sha], 60, destination)
         if self._run(["git", "rev-parse", "HEAD"], 30, destination).strip() != job.source_sha:
             raise ConflictError("Detached checkout does not match source_sha")
