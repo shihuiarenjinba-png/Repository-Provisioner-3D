@@ -130,6 +130,21 @@ class FakeGitHub:
         return dict(self.result)
 
 
+class FakeFactoryTransport:
+    def __init__(self, error=None):
+        self.error, self.calls = error, 0
+
+    def verify(self, _job, _package, *, run_id, artifact_id, work_root):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        if run_id != 123 or artifact_id != 456:
+            raise HoldError("fixture requires explicit authenticated artifact IDs")
+        return {"status": "PRE_IDENTITY_BYTES_CORRELATED",
+                "evidence_scope": "FACTORY_ARTIFACT_BYTES_NOT_STORE_E2E",
+                "factory_build_head": "b" * 40, "post_identity_ready": False}
+
+
 class ContractValidationTests(unittest.TestCase):
     def test_current_3d_factory_branch_is_pinned(self):
         self.assertEqual(config().source_branch, "codex/3d-real-msix-build-path-20261027")
@@ -316,10 +331,11 @@ class GitHubReturnTests(unittest.TestCase):
 
 
 class OrchestratorTests(unittest.TestCase):
-    def runner(self, root, source=None, builder=None, identity=None, github=None):
+    def runner(self, root, source=None, builder=None, identity=None, github=None, factory_transport=None):
         return Provisioner(config(), Path(root) / "state", Path(root) / "work",
                            source=source or FakeSource(), builder=builder or FakeBuilder(),
-                           identity=identity or FakeIdentity(), github=github or FakeGitHub())
+                           identity=identity or FakeIdentity(), github=github or FakeGitHub(),
+                           factory_transport=factory_transport)
 
     def test_dry_run_has_no_external_side_effect(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -373,11 +389,48 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(result["status"], "CONFLICT")
     def test_3d_exe_only_build_can_return_identity_for_factory_msix(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe")).run(job(), apply=True)
+            transport = FakeFactoryTransport()
+            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe"),
+                                 factory_transport=transport).run(
+                                     job(), apply=True, factory_run_id=123, factory_artifact_id=456)
         self.assertEqual(result["status"], "COMPLETED")
+        self.assertEqual(transport.calls, 1)
+        self.assertEqual(result["factory_export_evidence"]["status"], "PRE_IDENTITY_BYTES_CORRELATED")
         self.assertEqual(result["official_identity"]["package_comparison"], "DEFERRED_TO_FACTORY_MSIX")
         self.assertRegex(result["package"]["sha256"], r"^[0-9a-f]{64}$")
         self.assertEqual(result["windows_all_auto_record"]["request_id"], "req-0001")
+
+    def test_3d_exe_without_artifact_ids_holds_before_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            identity = FakeIdentity()
+            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe"),
+                                 identity=identity).run(job(), apply=True)
+        self.assertEqual(result["status"], "HOLD")
+        self.assertIn("--factory-run-id", result["errors"][0])
+        self.assertEqual(identity.calls, 0)
+        self.assertEqual(result["package"]["status"], "INSPECTED")
+        self.assertIsNone(result["factory_export_evidence"])
+
+    def test_3d_exe_provenance_mismatch_holds_before_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            identity = FakeIdentity()
+            transport = FakeFactoryTransport(error=HoldError("EXE mismatch"))
+            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe"),
+                                 identity=identity, factory_transport=transport).run(
+                                     job(), apply=True, factory_run_id=123, factory_artifact_id=456)
+        self.assertEqual(result["status"], "HOLD")
+        self.assertEqual(identity.calls, 0)
+        self.assertIsNone(result["factory_export_evidence"])
+
+    def test_3d_verified_provenance_survives_identity_hold(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            identity = FakeIdentity(error=HoldError("operator Identity missing"))
+            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe"),
+                                 identity=identity, factory_transport=FakeFactoryTransport()).run(
+                                     job(), apply=True, factory_run_id=123, factory_artifact_id=456)
+        self.assertEqual(result["status"], "HOLD")
+        self.assertEqual(result["factory_export_evidence"]["status"], "PRE_IDENTITY_BYTES_CORRELATED")
+        self.assertIsNone(result["windows_all_auto_record"])
     def test_type_state_is_namespaced(self):
         with tempfile.TemporaryDirectory() as tmp:
             runner = self.runner(tmp)
