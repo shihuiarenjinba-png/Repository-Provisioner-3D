@@ -113,11 +113,11 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
         if not isinstance(expiry, str) or not re.fullmatch(
             r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", expiry
         ):
-            raise HandoffContractError(f"invalid ZIP archive expiry: {section}")
+            raise HandoffContractError(f"invalid artifact expiry: {section}")
         try:
             datetime.strptime(expiry, "%Y-%m-%dT%H:%M:%SZ")
         except ValueError as exc:
-            raise HandoffContractError(f"invalid ZIP archive expiry: {section}") from exc
+            raise HandoffContractError(f"invalid artifact expiry: {section}") from exc
     if factory.get("artifact_expired_at_observation") is not False:
         raise HandoffContractError("Factory export artifact expired or expiry unverified")
     qa = data["real_makeappx_qa_evidence"]
