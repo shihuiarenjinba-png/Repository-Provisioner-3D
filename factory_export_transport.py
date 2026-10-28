@@ -56,10 +56,9 @@ class FactoryExportTransport:
         prefix = f"/repos/{repo}/actions"
         run = self._json(f"{prefix}/runs/{run_id}")
         artifact = self._json(f"{prefix}/artifacts/{artifact_id}")
+        size = artifact.get("size_in_bytes")
         if (run.get("id") != run_id or artifact.get("id") != artifact_id
-                or artifact.get("size_in_bytes", 0) > MAX_ARCHIVE_BYTES
-                or artifact.get("size_in_bytes", 0) <= 0
-                or type(artifact.get("size_in_bytes")) is not int):
+                or type(size) is not int or not 0 < size <= MAX_ARCHIVE_BYTES):
             raise HoldError("Factory export evidence HOLD: GitHub run/artifact metadata mismatch")
         work_root.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix="factory-export-", dir=work_root) as temporary:
