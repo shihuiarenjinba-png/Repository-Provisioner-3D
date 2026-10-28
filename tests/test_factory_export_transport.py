@@ -37,11 +37,13 @@ class FactoryTransportTests(unittest.TestCase):
             def fake_download(command, **kwargs):
                 kwargs["stdout"].write(archive)
                 return subprocess.CompletedProcess(command, 0)
-            with patch.object(FactoryExportTransport, "_json",
-                              side_effect=[{"id": 42}, {"id": 7,
-                                "size_in_bytes": len(archive), "digest": "sha256:" + "0" * 64}]), \\
-                 patch("factory_export_transport.subprocess.run", side_effect=fake_download), \\
-                 patch("factory_export_transport.verify_factory_export_artifact") as verify:
+            with (
+                patch.object(FactoryExportTransport, "_json",
+                             side_effect=[{"id": 42}, {"id": 7,
+                               "size_in_bytes": len(archive), "digest": "sha256:" + "0" * 64}]),
+                patch("factory_export_transport.subprocess.run", side_effect=fake_download),
+                patch("factory_export_transport.verify_factory_export_artifact") as verify,
+            ):
                 with self.assertRaisesRegex(HoldError, "authenticated ZIP digest mismatch"):
                     FactoryExportTransport("gh").verify(
                         self.job, {}, run_id=42, artifact_id=7, work_root=Path(tmp))
