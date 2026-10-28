@@ -107,9 +107,11 @@ class PrismCheckOnlyTests(unittest.TestCase):
         self.assertEqual(before["artifact_snapshot_freshness"]["roles"][
             "unsigned_makeappx_qa"], "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY")
         self.assertEqual(before["artifact_snapshot_freshness"]["roles"][
-            "factory_export"], "UNKNOWN_NO_EXPIRY_IN_SNAPSHOT")
+            "factory_export"], "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY")
         after = prism_check_only(self.handoff, now_utc=datetime(
             2026, 11, 5, tzinfo=timezone.utc))
+        self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
+            "factory_export"], "EXPIRED_REQUIRES_REMOTE_REFRESH")
         self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
             "provisioner_pre_identity"], "EXPIRED_REQUIRES_REMOTE_REFRESH")
         self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
