@@ -80,6 +80,31 @@ class PrismHandoffTests(unittest.TestCase):
                 with self.assertRaises(HandoffContractError):
                     validate_prism_handoff(d)
 
+    def test_pre_and_unsigned_qa_provenance_must_remain_separate_and_consistent(self):
+        validate_prism_handoff(self.handoff)
+        cases = (
+            ("provisioner_pre_identity_evidence", "artifact_name", "wrong-artifact"),
+            ("provisioner_pre_identity_evidence", "artifact_expired_at_observation", True),
+            ("provisioner_pre_identity_evidence", "run_head_sha", "f" * 40),
+            ("real_makeappx_qa_evidence", "run_head_sha", "e" * 40),
+            ("real_makeappx_qa_evidence", "artifact_expires_at", "not-a-date"),
+            ("real_makeappx_qa_evidence", "artifact_expired_at_observation", None),
+            ("real_makeappx_qa_evidence", "artifact_name",
+             "prism-route-3d-provisioner-pre-identity"),
+            ("factory_export_evidence", "artifact_expired_at_observation", True),
+        )
+        for section, key, value in cases:
+            with self.subTest(section=section, key=key):
+                d = copy.deepcopy(self.handoff)
+                d[section][key] = value
+                with self.assertRaises(HandoffContractError):
+                    validate_prism_handoff(d)
+        d = copy.deepcopy(self.handoff)
+        d["real_makeappx_qa_evidence"]["run_id"] = d["provisioner_pre_identity_evidence"]["run_id"]
+        d["real_makeappx_qa_evidence"]["artifact_id"] = d["provisioner_pre_identity_evidence"]["artifact_id"]
+        with self.assertRaisesRegex(HandoffContractError, "duplicate"):
+            validate_prism_handoff(d)
+
     def test_manual_reference_does_not_authorize_store_pipeline(self):
         for key, value in (
             ("local_operator_identity_capture", "PASS"),
