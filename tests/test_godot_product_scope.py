@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from package_identity_provisioner import HoldError, PackageBuilder, ProductConfig
+from test_godot_pe_structure import fake_pe_x64
 
 
 CONFIG = ProductConfig.load(Path(__file__).resolve().parents[1] / "config.json")
@@ -41,7 +42,7 @@ class ProductScopedGodotTests(unittest.TestCase):
 
             def fake_run(command, cwd, timeout):
                 calls.append((command, cwd, timeout))
-                Path(command[-1]).write_bytes(b"MZnew")
+                Path(command[-1]).write_bytes(fake_pe_x64(b"new"))
 
             with patch.dict(os.environ, {"GODOT_EXE": "fake-godot"}):
                 with patch.object(PackageBuilder, "_run", side_effect=fake_run):
@@ -50,7 +51,7 @@ class ProductScopedGodotTests(unittest.TestCase):
                     )
 
             self.assertEqual(selected, (output / "candidate.exe").resolve())
-            self.assertEqual(selected.read_bytes(), b"MZnew")
+            self.assertEqual(selected.read_bytes(), fake_pe_x64(b"new"))
             self.assertEqual(len(calls), 1)
             self.assertEqual(calls[0][0][3], str(project))
             self.assertEqual(calls[0][1], project)
@@ -70,7 +71,7 @@ class ProductScopedGodotTests(unittest.TestCase):
             os.utime(unrelated, (4102444800, 4102444800))
 
             def fake_run(command, cwd, timeout):
-                Path(command[-1]).write_bytes(b"MZ-current")
+                Path(command[-1]).write_bytes(fake_pe_x64(b"-current"))
 
             with patch.dict(os.environ, {"GODOT_EXE": "fake-godot"}), patch.object(
                 PackageBuilder, "_run", side_effect=fake_run
@@ -79,7 +80,7 @@ class ProductScopedGodotTests(unittest.TestCase):
                     SimpleNamespace(slug="sample-product"), source, output, CONFIG
                 )
             self.assertEqual(selected, (output / "candidate.exe").resolve())
-            self.assertEqual(selected.read_bytes(), b"MZ-current")
+            self.assertEqual(selected.read_bytes(), fake_pe_x64(b"-current"))
 
     def test_missing_product_does_not_export_factory_root(self):
         with tempfile.TemporaryDirectory() as tmp:

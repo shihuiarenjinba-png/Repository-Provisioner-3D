@@ -15,6 +15,8 @@ from package_identity_provisioner import (
     windows_all_auto_record, _package_family_name, _windows_package_sid,
 )
 
+from test_godot_pe_structure import fake_pe_x64
+
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
 TEST_TEMP = ROOT / ".test-tmp"
@@ -99,7 +101,7 @@ class FakeBuilder:
         path = output_dir / ("candidate.msix" if self.artifact_kind == "msix" else "candidate.exe")
         if self.artifact_kind == "msix":
             return make_msix(path, name=self.name)
-        path.write_bytes(b"MZ-not-a-real-binary")
+        path.write_bytes(fake_pe_x64(b"-builder"))
         return path
 
 
@@ -191,7 +193,7 @@ class PackageInspectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             exe = Path(tmp) / "candidate.exe"
             pck = Path(tmp) / "candidate.pck"
-            exe.write_bytes(b"MZ-real-export-fixture")
+            exe.write_bytes(fake_pe_x64(b"-real-export-fixture"))
             pck.write_bytes(b"GDPC-real-pck-fixture")
             result = inspect_package(exe, godot_export=True)
             self.assertEqual(result["godot_export"]["exe_sha256"], result["sha256"])

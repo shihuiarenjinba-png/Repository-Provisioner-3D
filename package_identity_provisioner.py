@@ -354,11 +354,9 @@ class PackageBuilder:
         self._run([executable, "--headless", "--path", str(source), "--export-release", "Windows Desktop", str(target)], source, 1800)
         if target.is_symlink() or not target.is_file() or target.stat().st_size == 0:
             raise HoldError("Godot Windows export produced no nonempty executable")
-        # A successful Godot process may still leave arbitrary bytes at the target.
-        # The MZ magic is a minimal Windows executable check, not a full PE/GUI QA.
-        with target.open("rb") as handle:
-            if handle.read(2) != b"MZ":
-                raise HoldError("Godot Windows export EXE is missing the MZ header")
+        # Validate the PE32+ x64 structure before trusting the Godot export.
+        # This is static byte QA, not Windows launch/GPU/GUI verification.
+        _validate_godot_windows_pe_x64(target)
         # Godot's Windows Desktop export may place game data in a separate
         # candidate.pck. Accepting only candidate.exe silently loses resources
         # when binary_format/embed_pck=false.
@@ -443,6 +441,39 @@ def signature_status(path: Path) -> str:
     return result.stdout.strip().upper() if result.returncode == 0 and result.stdout.strip() else "INSPECTION_FAILED"
 
 
+def _validate_godot_windows_pe_x64(path: Path) -> None:
+    """Reject MZ-only, truncated, non-x64 or non-PE32+ Godot export files.
+
+    Bounds and COFF/optional-header checks are static format checks only.
+    A valid PE header is not evidence of a runnable or safe product.
+    """
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        dos = handle.read(64)
+        if dos[:2] != b"MZ":
+            raise HoldError("Godot Windows export EXE is missing the MZ header")
+        if len(dos) < 64:
+            raise HoldError("Godot Windows export has a truncated DOS header")
+        pe_offset = int.from_bytes(dos[0x3c:0x40], "little")
+        if pe_offset < 64 or pe_offset > 1024 * 1024 or pe_offset + 26 > size:
+            raise HoldError("Godot Windows export has an invalid PE offset")
+        handle.seek(pe_offset)
+        pe = handle.read(26)
+        if pe[:4] != b"PE\x00\x00":
+            raise HoldError("Godot Windows export has an invalid PE signature")
+        machine = int.from_bytes(pe[4:6], "little")
+        sections = int.from_bytes(pe[6:8], "little")
+        optional_size = int.from_bytes(pe[20:22], "little")
+        if machine != 0x8664:
+            raise HoldError("Godot Windows export PE machine is not x64")
+        if not 1 <= sections <= 96:
+            raise HoldError("Godot Windows export has invalid PE section count")
+        if optional_size < 0x70 or pe[24:26] != b"\x0b\x02":
+            raise HoldError("Godot Windows export is not PE32+")
+        if pe_offset + 24 + optional_size + sections * 40 > size:
+            raise HoldError("Godot Windows export has a truncated PE section table")
+
+
 def inspect_package(path: Path, *, godot_export: bool = False) -> dict[str, Any]:
     if not path.is_file():
         raise HoldError("Package artifact does not exist")
@@ -459,9 +490,7 @@ def inspect_package(path: Path, *, godot_export: bool = False) -> dict[str, Any]
     if godot_export:
         if path.suffix.lower() != ".exe" or path.is_symlink():
             raise HoldError("Godot export evidence must be a regular Windows EXE")
-        with path.open("rb") as handle:
-            if handle.read(2) != b"MZ":
-                raise HoldError("Godot export evidence EXE is missing the MZ header")
+        _validate_godot_windows_pe_x64(path)
         pck = path.with_suffix(".pck")
         if pck.is_symlink() or (pck.exists() and not pck.is_file()):
             raise HoldError("Godot external PCK evidence is not a regular file")

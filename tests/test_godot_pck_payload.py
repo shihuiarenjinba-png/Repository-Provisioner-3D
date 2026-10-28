@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from package_identity_provisioner import HoldError, PackageBuilder
+from test_godot_pe_structure import fake_pe_x64
 
 
 class GodotPckPayloadTests(unittest.TestCase):
@@ -27,7 +28,7 @@ class GodotPckPayloadTests(unittest.TestCase):
     def build(self, project: Path, output: Path, *, exe=True, pck=False, empty_pck=False):
         def fake_export(_command, _cwd, _timeout):
             if exe:
-                (output / "candidate.exe").write_bytes(b"MZ-candidate")
+                (output / "candidate.exe").write_bytes(fake_pe_x64(b"-candidate"))
             if pck:
                 (output / "candidate.pck").write_bytes(b"" if empty_pck else b"GDPC-resources")
         with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
@@ -57,7 +58,7 @@ class GodotPckPayloadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             project, output = self.make_project(Path(tmp))
             def fake_export(_command, _cwd, _timeout):
-                (output / "candidate.exe").write_bytes(b"MZ-candidate")
+                (output / "candidate.exe").write_bytes(fake_pe_x64(b"-candidate"))
                 (output / "candidate.pck").write_bytes(b"NOT_A_GODOT_PACK")
             with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
                 PackageBuilder, "_run", side_effect=fake_export
@@ -87,7 +88,7 @@ class GodotPckPayloadTests(unittest.TestCase):
             (output / "candidate.pck").write_bytes(b"GDPC-old-export")
             with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
                 PackageBuilder, "_run",
-                side_effect=lambda *_: (output / "candidate.exe").write_bytes(b"MZ-new-export")
+                side_effect=lambda *_: (output / "candidate.exe").write_bytes(fake_pe_x64(b"-new-export"))
             ):
                 with self.assertRaisesRegex(HoldError, "candidate.pck"):
                     PackageBuilder()._build_godot(project, output)
