@@ -661,7 +661,7 @@ def compare_package_identity(package: dict[str, Any], official: dict[str, Any],
 
 def windows_all_auto_record(job: Job, official: dict[str, Any],
                             package: dict[str, Any]) -> dict[str, Any]:
-    return {
+    record = {
         "schema_version": 1,
         "type": {"APP": "app", "GAME": "game", "GAME_3D": "3d-game"}[job.product_type],
         "request_id": job.request_id,
@@ -686,6 +686,23 @@ def windows_all_auto_record(job: Job, official: dict[str, Any],
                      ("store_id", "name", "publisher", "version",
                       "package_family_name", "package_sid")},
     }
+
+    # A Godot EXE/PCK is a verified source payload, not a Store MSIX.
+    # Fail closed for Windows-all-auto intake even after operator Identity lookup.
+    # Only a separately built and verified post-Identity MSIX may populate
+    # package_sha256. Preserve the EXE hash under an explicitly typed key.
+    if job.product_type == "GAME_3D" and package.get("kind") == "exe":
+        record.update(
+            package_sha256=None,
+            package_sha256_kind="POST_IDENTITY_MSIX_ONLY",
+            pre_identity_exe_sha256=package["sha256"],
+            msix_package_sha256=None,
+            signature_status="NOT_APPLICABLE_PRE_MSIX",
+            intake_status="HOLD_PRE_MSIX",
+            store_ready=False,
+            identity_cas_receipt=None,
+        )
+    return record
 
 
 class GitHubReturnClient:
