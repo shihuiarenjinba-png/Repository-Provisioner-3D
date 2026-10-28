@@ -472,6 +472,19 @@ def _validate_godot_windows_pe_x64(path: Path) -> None:
             raise HoldError("Godot Windows export is not PE32+")
         if pe_offset + 24 + optional_size + sections * 40 > size:
             raise HoldError("Godot Windows export has a truncated PE section table")
+        # A valid COFF table is insufficient if its sections reference bytes
+        # beyond the end of the file. Do not accept phantom raw payloads.
+        section_table = pe_offset + 24 + optional_size
+        handle.seek(section_table)
+        for _ in range(sections):
+            section = handle.read(40)
+            if len(section) != 40:
+                raise HoldError("Godot Windows export has a truncated PE section")
+            raw_size = int.from_bytes(section[16:20], "little")
+            raw_pointer = int.from_bytes(section[20:24], "little")
+            if raw_size and (not raw_pointer or raw_pointer > size
+                             or raw_size > size - raw_pointer):
+                raise HoldError("Godot Windows export PE section raw data is outside the file")
 
 
 def inspect_package(path: Path, *, godot_export: bool = False) -> dict[str, Any]:
