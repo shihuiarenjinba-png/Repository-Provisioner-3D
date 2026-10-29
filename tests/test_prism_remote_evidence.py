@@ -47,12 +47,12 @@ class RemoteEvidenceTests(unittest.TestCase):
         return {
             "factory_run": _run(factory, fb, h["source_sha"]),
             "factory_artifact": _artifact(factory, fb, h["source_sha"], FACTORY_REPOSITORY_ID),
-            "pre_run": _run(pre, pb, pre["run_head_sha"], PROVISIONER_REPOSITORY_ID),
+            "pre_run": _run(pre, pb, pre["run_head_sha"]),
             "pre_artifact": _artifact(pre, pb, pre["run_head_sha"], PROVISIONER_REPOSITORY_ID),
             "qa_run": _run(qa, pb, qa["run_head_sha"]),
             "qa_artifact": _artifact(qa, pb, qa["run_head_sha"], PROVISIONER_REPOSITORY_ID),
             "pck_artifact": _artifact(h["independent_pck_diagnostic_evidence"],
-                                      pb, pre["run_head_sha"]),
+                                      pb, pre["run_head_sha"], PROVISIONER_REPOSITORY_ID),
             "factory_branch": {"name": fb,
                                "commit": {"sha": h["observed_factory_branch_head"]}},
             "factory_compare": {
