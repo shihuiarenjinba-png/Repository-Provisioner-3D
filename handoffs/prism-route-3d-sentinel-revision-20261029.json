@@ -46,44 +46,44 @@
       "expires_at": "2026-11-05T15:24:12Z"
     },
     "provisioner_pre": {
-      "run_id": 40882034737,
-      "run_head_sha": "ac1100498511659982ba60fb82e4e3d4cdf6d112",
-      "artifact_id": 12901365872,
+      "run_id": 40901451477,
+      "run_head_sha": "218908079c618f12a5ddc5a47d99aec53e48274e",
+      "artifact_id": 12908718046,
       "artifact_name": "prism-route-3d-sentinel-revision-provisioner-pre",
-      "archive_digest": "sha256:ba6017feee7c34762e998d36c405823df2724478daaaafa6f13b9d65f3357159",
-      "archive_bytes": 2489,
-      "expires_at": "2026-11-05T13:27:50Z"
+      "archive_digest": "sha256:260120dd33ef822a05b0b16355cd1b37edf33eb3d0e35291897a4e6fa1b616a0",
+      "archive_bytes": 2483,
+      "expires_at": "2026-11-05T15:26:23Z"
     },
     "unsigned_makeappx": {
-      "run_id": 40882034500,
-      "run_head_sha": "ac1100498511659982ba60fb82e4e3d4cdf6d112",
-      "artifact_id": 12900910971,
+      "run_id": 40901451426,
+      "run_head_sha": "218908079c618f12a5ddc5a47d99aec53e48274e",
+      "artifact_id": 12910120795,
       "artifact_name": "prism-route-3d-sentinel-revision-makeappx-unsigned-qa",
-      "archive_digest": "sha256:20a2cc46654d390540d988fe683cdffe2bd28bb846354754bfe79b71b870d905",
-      "archive_bytes": 31030561,
-      "expires_at": "2026-11-03T13:27:45Z",
+      "archive_digest": "sha256:2bcdf46b31431ba76198f062926acd788d1b9f4a5e392d8093a73db137ab227d",
+      "archive_bytes": 31032520,
+      "expires_at": "2026-11-03T15:26:22Z",
       "signed": false,
       "store_ready": false
     },
     "independent_pck_diagnostic": {
-      "run_id": 40882035109,
-      "run_head_sha": "ac1100498511659982ba60fb82e4e3d4cdf6d112",
-      "artifact_id": 12900922091,
+      "run_id": 40901451135,
+      "run_head_sha": "218908079c618f12a5ddc5a47d99aec53e48274e",
+      "artifact_id": 12908962542,
       "artifact_name": "prism-route-3d-independent-pck-diagnostic",
-      "archive_digest": "sha256:457e43705cfd4c62062da7493dab9537ff8b6ef1a22108d1df234e188f26960e",
-      "archive_bytes": 13284,
-      "expires_at": "2026-10-30T13:27:57Z",
+      "archive_digest": "sha256:026acad74ce313924eabc2dd1dc037f87951b423fd2d5f6dd1adf868e5320b46",
+      "archive_bytes": 13280,
+      "expires_at": "2026-10-30T15:26:36Z",
       "diagnostic_only": true,
       "not_store_payload": true
     }
   },
-  "evidence_observed_at": "2026-10-29T15:25:00Z",
-  "evidence_observation_scope": "Current Factory run and artifact verified via GitHub API; PRE and MakeAppx evidence still refer to the preceding revision until fresh runs finish. ZIP digests are archive digests, not EXE/PCK/MSIX payload hashes; recheck expiration at use time",
+  "evidence_observed_at": "2026-10-29T15:27:00Z",
+  "evidence_observation_scope": "Real new-source Factory, authenticated independent revision PRE and Windows MakeAppx QA succeeded; generic PCK diagnostic is original-source only, not new-revision Store payload. GitHub Artifact ZIP digests are archive digests, not EXE/PCK/MSIX payload hashes; recheck expiration at use time",
   "gates": {
     "factory_export": "PASS_PREVIOUS_RUN",
     "godot_windows_export": "PASS_PREVIOUS_RUN",
-    "exe_pck_provisioner": "HOLD_PENDING_NEW_REVISION_PRE",
-    "pre_identity": "HOLD_PENDING_NEW_REVISION_PRE",
+    "exe_pck_provisioner": "PASS_REAL_REVISION_BYTES_CORRELATED",
+    "pre_identity": "PRE_IDENTITY_READY",
     "registration_type": "MSIX_OR_PWA_GAME",
     "identity_cas": "HOLD",
     "approved_package_version": "HOLD",
@@ -91,7 +91,7 @@
     "windows_all_auto_intake": "HOLD",
     "local_gpu_install_gui": "DEFERRED_LOCAL_GATE",
     "product_e2e": "HOLD",
-    "unsigned_makeappx": "HOLD_PENDING_NEW_REVISION_QA"
+    "unsigned_makeappx": "PASS_UNSIGNED_QA_ONLY"
   },
   "controls": {
     "second_3d_product_allowed": false,
@@ -101,5 +101,5 @@
     "auto_merge_allowed": false
   },
   "handoff_owner": "36-minute Windows/local lane",
-  "next_action": "Run exact new Factory SHA through independent PRE and unsigned MakeAppx; then reconcile official Partner Center Identity/CAS and Version. Do not create duplicate product."
+  "next_action": "36-minute Windows lane: verify official existing Partner Center product, Identity/CAS and approved Version for new request before post-Identity signed MSIX and Windows-all-auto receipt. No duplicate product."
 }
