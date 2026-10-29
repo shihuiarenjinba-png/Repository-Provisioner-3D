@@ -6,7 +6,9 @@ from pathlib import Path
 import unittest
 
 from partner_center_handoff_contract import HandoffContractError
-from prism_remote_evidence import verify_remote_snapshot
+from prism_remote_evidence import (
+    verify_remote_snapshot, FACTORY_REPOSITORY_ID, PROVISIONER_REPOSITORY_ID,
+)
 
 HANDOFF = Path(__file__).resolve().parents[1] / "handoffs" / (
     "prism-route-3d-partner-center-product-creation.json"
@@ -19,13 +21,15 @@ def _run(evidence, branch, head):
             "head_branch": branch, "status": "completed", "conclusion": "success"}
 
 
-def _artifact(evidence, branch, head):
+def _artifact(evidence, branch, head, repo_id):
     return {"id": evidence["artifact_id"], "name": evidence["artifact_name"],
             "expired": False, "size_in_bytes": evidence["artifact_archive_size_bytes"],
             "digest": evidence["artifact_archive_digest"],
             "expires_at": evidence["artifact_expires_at"],
             "workflow_run": {"id": evidence["run_id"], "head_sha": head,
-                             "head_branch": branch}}
+                             "head_branch": branch,
+                             "repository_id": repo_id,
+                             "head_repository_id": repo_id}}
 
 
 class RemoteEvidenceTests(unittest.TestCase):
@@ -42,11 +46,11 @@ class RemoteEvidenceTests(unittest.TestCase):
         pb = "codex/e2e-belt-connection-20261027"
         return {
             "factory_run": _run(factory, fb, h["source_sha"]),
-            "factory_artifact": _artifact(factory, fb, h["source_sha"]),
-            "pre_run": _run(pre, pb, pre["run_head_sha"]),
-            "pre_artifact": _artifact(pre, pb, pre["run_head_sha"]),
+            "factory_artifact": _artifact(factory, fb, h["source_sha"], FACTORY_REPOSITORY_ID),
+            "pre_run": _run(pre, pb, pre["run_head_sha"], PROVISIONER_REPOSITORY_ID),
+            "pre_artifact": _artifact(pre, pb, pre["run_head_sha"], PROVISIONER_REPOSITORY_ID),
             "qa_run": _run(qa, pb, qa["run_head_sha"]),
-            "qa_artifact": _artifact(qa, pb, qa["run_head_sha"]),
+            "qa_artifact": _artifact(qa, pb, qa["run_head_sha"], PROVISIONER_REPOSITORY_ID),
             "pck_artifact": _artifact(h["independent_pck_diagnostic_evidence"],
                                       pb, pre["run_head_sha"]),
             "factory_branch": {"name": fb,
@@ -138,6 +142,16 @@ class RemoteEvidenceTests(unittest.TestCase):
         del data["factory_branch"]["commit"]
         with self.assertRaisesRegex(HandoffContractError, "missing current Factory branch commit"):
             verify_remote_snapshot(self.handoff, data, now_utc=NOW)
+
+    def test_artifact_repository_provenance_must_match_expected_repo(self):
+        for section in ("factory_artifact", "pre_artifact", "qa_artifact", "pck_artifact"):
+            for key in ("repository_id", "head_repository_id"):
+                for value in (None, 0, True, 999999999):
+                    with self.subTest(section=section, key=key, value=value):
+                        data = self.remote()
+                        data[section]["workflow_run"][key] = value
+                        with self.assertRaisesRegex(HandoffContractError, "repository"):
+                            verify_remote_snapshot(self.handoff, data, now_utc=NOW)
 
     def test_missing_expired_or_untrusted_input_rejected(self):
         data = self.remote()
