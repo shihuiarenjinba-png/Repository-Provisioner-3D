@@ -49,6 +49,8 @@ class RemoteEvidenceTests(unittest.TestCase):
             "qa_artifact": _artifact(qa, pb, qa["run_head_sha"]),
             "pck_artifact": _artifact(h["independent_pck_diagnostic_evidence"],
                                       pb, pre["run_head_sha"]),
+            "factory_branch": {"name": fb,
+                               "commit": {"sha": h["observed_factory_branch_head"]}},
             "factory_compare": {
                 "status": "ahead", "ahead_by": 1, "behind_by": 0,
                 "base_commit": {"sha": h["source_sha"]},
@@ -65,6 +67,7 @@ class RemoteEvidenceTests(unittest.TestCase):
         self.assertEqual(receipt["metadata_comparison"],
                          "PASS_CALLER_SUPPLIED_API_RESPONSES")
         self.assertEqual(receipt["product_e2e"], "HOLD")
+        self.assertIs(receipt["factory_branch_head_matched_snapshot"], True)
         self.assertIs(receipt["pck_payload_bytes_verified_by_this_check"], False)
         for field in ("zip_bytes_verified_by_this_check",
                       "partner_center_identity_verified", "cas_receipt_verified",
@@ -86,6 +89,8 @@ class RemoteEvidenceTests(unittest.TestCase):
             ("qa_artifact", "name", "prism-route-3d-provisioner-pre-identity"),
             ("qa_artifact", "expires_at", "2026-10-28T00:00:00Z"),
             ("factory_compare", "ahead_by", 2),
+            ("factory_branch", "name", "main"),
+            ("factory_branch", "commit", {"sha": "f" * 40}),
         )
         for section, field, value in cases:
             with self.subTest(section=section, field=field):
@@ -123,6 +128,16 @@ class RemoteEvidenceTests(unittest.TestCase):
                 data["factory_compare"][field] = value
                 with self.assertRaises(HandoffContractError):
                     verify_remote_snapshot(self.handoff, data, now_utc=NOW)
+
+    def test_current_factory_branch_must_match_pinned_identity_only_head(self):
+        data = self.remote()
+        data["factory_branch"]["commit"]["sha"] = self.handoff["source_sha"]
+        with self.assertRaisesRegex(HandoffContractError, "current Factory branch HEAD"):
+            verify_remote_snapshot(self.handoff, data, now_utc=NOW)
+        data = self.remote()
+        del data["factory_branch"]["commit"]
+        with self.assertRaisesRegex(HandoffContractError, "missing current Factory branch commit"):
+            verify_remote_snapshot(self.handoff, data, now_utc=NOW)
 
     def test_missing_expired_or_untrusted_input_rejected(self):
         data = self.remote()
