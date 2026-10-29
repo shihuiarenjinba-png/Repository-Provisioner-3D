@@ -135,6 +135,7 @@ jobs:
           pre_artifact_id="$(jq -er '.provisioner_pre_identity_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
           qa_run_id="$(jq -er '.real_makeappx_qa_evidence.run_id | select(type == "number" and . > 0)' "$handoff")"
           qa_artifact_id="$(jq -er '.real_makeappx_qa_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
+          pck_artifact_id="$(jq -er '.independent_pck_diagnostic_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
           source_sha="$(jq -er '.source_sha | select(test("^[0-9a-f]{40}$"))' "$handoff")"
           observed_head="$(jq -er '.observed_factory_branch_head | select(test("^[0-9a-f]{40}$"))' "$handoff")"
           gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/actions/runs/$factory_run_id" > /tmp/prism-api/factory_run.json
@@ -143,13 +144,14 @@ jobs:
           gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pre_artifact_id" > /tmp/prism-api/pre_artifact.json
           gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/$qa_run_id" > /tmp/prism-api/qa_run.json
           gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$qa_artifact_id" > /tmp/prism-api/qa_artifact.json
+          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pck_artifact_id" > /tmp/prism-api/pck_artifact.json
           gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/compare/$source_sha...$observed_head" > /tmp/prism-api/factory_compare.json
           python - <<'PY'
           import json
           from pathlib import Path
           root=Path('/tmp/prism-api')
           fields=('factory_run','factory_artifact','pre_run','pre_artifact',
-                  'qa_run','qa_artifact','factory_compare')
+                  'qa_run','qa_artifact','pck_artifact','factory_compare')
           Path('canary-remote-input.json').write_text(
               json.dumps({k:json.loads((root/(k+'.json')).read_text()) for k in fields}))
           PY

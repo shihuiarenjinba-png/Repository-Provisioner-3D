@@ -71,7 +71,7 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
     validate_prism_handoff(handoff)
     if not isinstance(remote, dict) or set(remote) != {
         "factory_run", "factory_artifact", "pre_run", "pre_artifact",
-        "qa_run", "qa_artifact", "factory_compare"
+        "qa_run", "qa_artifact", "pck_artifact", "factory_compare"
     } or not all(isinstance(v, dict) for v in remote.values()):
         raise HandoffContractError("missing remote GitHub API observations")
     now = now_utc or datetime.now(timezone.utc)
@@ -81,6 +81,7 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
     factory = handoff["factory_export_evidence"]
     pre = handoff["provisioner_pre_identity_evidence"]
     qa = handoff["real_makeappx_qa_evidence"]
+    pck = handoff["independent_pck_diagnostic_evidence"]
     _check_run(remote["factory_run"], factory, FACTORY_BRANCH, handoff["source_sha"])
     _check_artifact(remote["factory_artifact"], factory, handoff["source_sha"],
                     FACTORY_BRANCH, now)
@@ -91,6 +92,10 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
                    evidence["run_head_sha"])
         _check_artifact(remote[artifact_key], evidence, evidence["run_head_sha"],
                         PROVISIONER_BRANCH, now)
+    _eq(pck["run_id"], pre["run_id"], "PCK parent PRE run")
+    _eq(pck["run_head_sha"], pre["run_head_sha"], "PCK parent HEAD")
+    _check_artifact(remote["pck_artifact"], pck, pre["run_head_sha"],
+                    PROVISIONER_BRANCH, now)
     compare = remote["factory_compare"]
     _eq(compare.get("status"), "ahead", "identity-only compare status")
     _eq(compare.get("ahead_by"), 1, "identity-only compare ahead")
@@ -123,6 +128,8 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
         "factory_run_id": factory["run_id"],
         "pre_run_id": pre["run_id"],
         "qa_run_id": qa["run_id"],
+        "pck_diagnostic_artifact_id": pck["artifact_id"],
+        "pck_payload_bytes_verified_by_this_check": False,
         "metadata_comparison": "PASS_CALLER_SUPPLIED_API_RESPONSES",
         "zip_bytes_verified_by_this_check": False,
         "partner_center_identity_verified": False,

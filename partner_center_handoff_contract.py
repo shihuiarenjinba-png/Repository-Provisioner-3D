@@ -98,6 +98,28 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
         observed_pairs.add(pair)
     if len(observed_heads) != 1:
         raise HandoffContractError("PRE/QA evidence comes from different Provisioner HEADs")
+    # Diagnostic PCK must belong to the same PRE run. It is not a Store payload.
+    pck = data.get("independent_pck_diagnostic_evidence")
+    pre = data["provisioner_pre_identity_evidence"]
+    if not isinstance(pck, dict) or any((
+        pck.get("run_id") != pre["run_id"],
+        pck.get("run_head_sha") != pre["run_head_sha"],
+        pck.get("artifact_name") != "prism-route-3d-independent-pck-diagnostic",
+        type(pck.get("artifact_id")) is not int or pck["artifact_id"] <= 0,
+        pck.get("artifact_id") == pre["artifact_id"],
+        pck.get("diagnostic_only") is not True,
+        pck.get("not_store_payload") is not True,
+        pck.get("artifact_expired_at_observation") is not False,
+    )):
+        raise HandoffContractError("independent PCK diagnostic provenance mismatch")
+    if not isinstance(pck.get("artifact_archive_digest"), str) or not _ARCHIVE_DIGEST.fullmatch(pck["artifact_archive_digest"]):
+        raise HandoffContractError("invalid independent PCK ZIP digest")
+    if type(pck.get("artifact_archive_size_bytes")) is not int or pck["artifact_archive_size_bytes"] <= 0:
+        raise HandoffContractError("invalid independent PCK ZIP size")
+    try:
+        datetime.strptime(pck["artifact_expires_at"], "%Y-%m-%dT%H:%M:%SZ")
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HandoffContractError("invalid independent PCK artifact expiry") from exc
     # Snapshot provenance must be structurally well-formed before handoff.
     # This does NOT authenticate ZIP bytes or prove current remote retrieval.
     for section in ("factory_export_evidence", "provisioner_pre_identity_evidence",

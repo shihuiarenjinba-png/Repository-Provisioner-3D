@@ -47,6 +47,8 @@ class RemoteEvidenceTests(unittest.TestCase):
             "pre_artifact": _artifact(pre, pb, pre["run_head_sha"]),
             "qa_run": _run(qa, pb, qa["run_head_sha"]),
             "qa_artifact": _artifact(qa, pb, qa["run_head_sha"]),
+            "pck_artifact": _artifact(h["independent_pck_diagnostic_evidence"],
+                                      pb, pre["run_head_sha"]),
             "factory_compare": {
                 "status": "ahead", "ahead_by": 1, "behind_by": 0,
                 "base_commit": {"sha": h["source_sha"]},
@@ -63,6 +65,7 @@ class RemoteEvidenceTests(unittest.TestCase):
         self.assertEqual(receipt["metadata_comparison"],
                          "PASS_CALLER_SUPPLIED_API_RESPONSES")
         self.assertEqual(receipt["product_e2e"], "HOLD")
+        self.assertIs(receipt["pck_payload_bytes_verified_by_this_check"], False)
         for field in ("zip_bytes_verified_by_this_check",
                       "partner_center_identity_verified", "cas_receipt_verified",
                       "signed_msix_verified", "windows_all_auto_intake_verified"):
@@ -77,6 +80,9 @@ class RemoteEvidenceTests(unittest.TestCase):
             ("pre_artifact", "size_in_bytes", 1),
             ("pre_artifact", "expired", True),
             ("qa_artifact", "id", 123),
+            ("pck_artifact", "id", 123),
+            ("pck_artifact", "digest", "sha256:" + "f" * 64),
+            ("pck_artifact", "expired", True),
             ("qa_artifact", "name", "prism-route-3d-provisioner-pre-identity"),
             ("qa_artifact", "expires_at", "2026-10-28T00:00:00Z"),
             ("factory_compare", "ahead_by", 2),
@@ -89,7 +95,7 @@ class RemoteEvidenceTests(unittest.TestCase):
                     verify_remote_snapshot(self.handoff, data, now_utc=NOW)
 
     def test_parent_run_mismatch_and_extra_compare_file_fail_closed(self):
-        for section in ("factory_artifact", "pre_artifact", "qa_artifact"):
+        for section in ("factory_artifact", "pre_artifact", "qa_artifact", "pck_artifact"):
             with self.subTest(section=section):
                 data = self.remote()
                 data[section]["workflow_run"]["head_sha"] = "f" * 40
@@ -120,7 +126,7 @@ class RemoteEvidenceTests(unittest.TestCase):
 
     def test_missing_expired_or_untrusted_input_rejected(self):
         data = self.remote()
-        del data["qa_run"]
+        del data["pck_artifact"]
         with self.assertRaises(HandoffContractError):
             verify_remote_snapshot(self.handoff, data, now_utc=NOW)
         with self.assertRaisesRegex(HandoffContractError, "expired"):

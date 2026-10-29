@@ -130,6 +130,25 @@ class PrismHandoffTests(unittest.TestCase):
                     with self.assertRaises(HandoffContractError):
                         validate_prism_handoff(d)
 
+    def test_independent_pck_diagnostic_cannot_be_swapped_or_promoted(self):
+        cases = (
+            ("run_id", 123),
+            ("run_head_sha", "f" * 40),
+            ("artifact_id", self.handoff["provisioner_pre_identity_evidence"]["artifact_id"]),
+            ("artifact_name", "prism-route-3d-real-makeappx-unsigned-not-store"),
+            ("artifact_archive_digest", "sha256:" + "g" * 64),
+            ("artifact_archive_size_bytes", 0),
+            ("artifact_expires_at", "2026-02-31T00:00:00Z"),
+            ("diagnostic_only", False),
+            ("not_store_payload", False),
+        )
+        for key, value in cases:
+            with self.subTest(key=key):
+                d = copy.deepcopy(self.handoff)
+                d["independent_pck_diagnostic_evidence"][key] = value
+                with self.assertRaises(HandoffContractError):
+                    validate_prism_handoff(d)
+
     def test_manual_reference_does_not_authorize_store_pipeline(self):
         for key, value in (
             ("local_operator_identity_capture", "PASS"),
