@@ -11,6 +11,8 @@ on:
       - tests/test_prism_revision_pin_consistency.py
       - tests/test_prism_sentinel_revision_handoff.py
       - prism_revision_handoff_contract.py
+      - verify_prism_revision_live.py
+      - tests/test_verify_prism_revision_live.py
       - tests/test_prism_revision_handoff_runtime.py
       - handoffs/prism-route-3d-sentinel-revision-20261029.json
   workflow_dispatch:
@@ -35,6 +37,25 @@ jobs:
           python-version: '3.12'
       - name: Offline regression before real revision validation
         run: python -m unittest discover -s tests -v
+      - name: Live GitHub handoff verification (read-only, never Store-ready)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python verify_prism_revision_live.py > /tmp/prism-live-metadata-receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt=json.loads(Path('/tmp/prism-live-metadata-receipt.json').read_text())
+          assert receipt['status']=='GITHUB_METADATA_MATCH_HOLD_PAYLOAD_NOT_VERIFIED'
+          assert receipt['github_metadata_checked']==[
+            'factory','provisioner_pre','unsigned_makeappx','independent_pck_diagnostic'
+          ]
+          assert receipt['product_e2e']=='HOLD'
+          assert receipt['store_submission_allowed'] is False
+          assert receipt['artifact_zip_bytes_verified'] is False
+          assert receipt['official_identity_cas_verified'] is False
+          print('PASS: authenticated GitHub metadata matched; payload, Identity and E2E remain HOLD')
+          PY
       - name: Install official Godot 4.3 with Windows x64 export templates
         shell: bash
         run: |
