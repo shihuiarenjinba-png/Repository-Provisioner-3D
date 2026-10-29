@@ -51,6 +51,25 @@ class PrismHandoffTests(unittest.TestCase):
                 with self.assertRaises(HandoffContractError):
                     validate_prism_handoff(d)
 
+    def test_final_packaging_strategy_must_not_drift_to_gdk_or_exe_app(self):
+        # Registration is derived from final MakeAppx/MSIX packaging, not
+        # from the intermediate Godot EXE. Reject inconsistent handoffs.
+        for key, value in (
+            ("packaging_strategy", "GODOT_WINDOWS_EXE_PCK_TO_GDK_MSIXVC"),
+            ("packaging_strategy", "EXE_OR_MSI_APP"),
+            ("packaging_strategy", None),
+            ("registration_type", "GDK_GAME"),
+            ("registration_type", "EXE_OR_MSI_APP"),
+            ("partner_center_selection", "GDK game"),
+            ("xbox_identity_fields_required", True),
+            ("xbox_identity_fields_required", None),
+        ):
+            with self.subTest(key=key, value=value):
+                d = copy.deepcopy(self.handoff)
+                d[key] = value
+                with self.assertRaises(HandoffContractError):
+                    validate_prism_handoff(d)
+
     def test_branch_drift_must_not_mutate_pinned_source(self):
         for key, value in (
             ("source_sha", self.handoff["observed_factory_branch_head"]),
