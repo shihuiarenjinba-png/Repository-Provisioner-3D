@@ -96,9 +96,16 @@ class PrismGithubMetadataTests(unittest.TestCase):
                       else "codex/e2e-belt-connection-20261027")
             key = (repo, item["run_id"])
             repository_id = (1434223918 if kind == "factory" else 1434261585)
+            workflow_path, workflow_id = {
+                "factory": (".github/workflows/prism-route-canary-export.yml", 399058278),
+                "provisioner_pre": (".github/workflows/prism-revision-provisioner.yml", 400477810),
+                "unsigned_makeappx": (".github/workflows/prism-revision-makeappx.yml", 400479598),
+                "independent_pck_diagnostic": (".github/workflows/canary-live-provenance.yml", 399059609),
+            }[kind]
             runs[key] = {
                 "id": item["run_id"], "status": "completed",
                 "conclusion": "success", "event": "push",
+                "path": workflow_path, "workflow_id": workflow_id,
                 "head_sha": item["run_head_sha"], "head_branch": branch,
                 "repository": {"id": repository_id},
                 "head_repository": {"id": repository_id},
@@ -143,6 +150,10 @@ class PrismGithubMetadataTests(unittest.TestCase):
             ("wrong run head", lambda r, a: r[key].update(head_sha="f" * 40)),
             ("unsafe branch", lambda r, a: r[key].update(head_branch="main")),
             ("unexpected event", lambda r, a: r[key].update(event="pull_request")),
+            ("wrong workflow path", lambda r, a: r[key].update(path=".github/workflows/ci.yml")),
+            ("wrong workflow id", lambda r, a: r[key].update(workflow_id=999999)),
+            ("missing workflow identity", lambda r, a: r[key].pop("workflow_id")),
+            ("boolean workflow id", lambda r, a: r[key].update(workflow_id=True)),
             ("wrong run repository", lambda r, a: r[key]["repository"].update(id=999999)),
             ("wrong run head repository", lambda r, a: r[key]["head_repository"].update(id=999999)),
             ("missing run repository", lambda r, a: r[key].pop("repository")),
