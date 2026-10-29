@@ -34,6 +34,7 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
         "source_repository": "shihuiarenjinba-png/3d-game-factory",
         "source_branch": "codex/3d-canary-prism-route-20261028",
         "source_sha": "15fdcb52e46e35e6de8e87c55af99719c21e09b9",
+        "packaging_strategy": "GODOT_WINDOWS_EXE_PCK_TO_MAKEAPPX_STANDARD_MSIX",
         "registration_type": "MSIX_OR_PWA_GAME",
         "partner_center_selection": "MSIX or PWA game",
         "pre_identity_status": "PRE_IDENTITY_READY",
@@ -145,6 +146,8 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
     qa = data["real_makeappx_qa_evidence"]
     if qa.get("qa_only") is not True or qa.get("signed") is not False or qa.get("store_ready") is not False:
         raise HandoffContractError("unsigned MakeAppx QA cannot be promoted to Store")
+    if data.get("xbox_identity_fields_required") is not False:
+        raise HandoffContractError("MSIX game cannot require GDK/Xbox Identity fields")
     if data.get("partner_center_product_status") != "UNRECONCILED_MANUAL_OBSERVATIONS":
         raise HandoffContractError("Partner Center existence conflict requires official reconciliation")
     if data.get("allow_local_product_creation") is not False:
