@@ -78,6 +78,25 @@ class PrismSentinelRevisionHandoffTests(unittest.TestCase):
         self.assertTrue(evidence["independent_pck_diagnostic"]["diagnostic_only"])
         self.assertTrue(evidence["independent_pck_diagnostic"]["not_store_payload"])
         self.assertIn("not EXE/PCK/MSIX payload hashes", h["evidence_observation_scope"])
+        # PRE and unsigned MakeAppx must be observations of the same
+        # Provisioner commit; an old or unrelated CI result cannot be
+        # presented as proof for this gameplay revision.
+        pre = evidence["provisioner_pre"]
+        qa = evidence["unsigned_makeappx"]
+        self.assertEqual(pre["run_head_sha"], qa["run_head_sha"])
+        self.assertNotEqual(pre["run_head_sha"], h["source_sha"])
+        self.assertNotEqual(pre["run_id"], qa["run_id"])
+        # The independent PCK diagnostic is deliberately original-source
+        # only. Do not confuse it with the new revision's PRE artifact.
+        pck = evidence["independent_pck_diagnostic"]
+        self.assertNotEqual(pck["artifact_id"], pre["artifact_id"])
+        self.assertNotEqual(pck["run_id"], pre["run_id"])
+        self.assertIn("original-source only", h["evidence_observation_scope"])
+        observed = datetime.fromisoformat(h["evidence_observed_at"].replace("Z", "+00:00"))
+        self.assertIsNotNone(observed.tzinfo)
+        for name, item in evidence.items():
+            expires = datetime.fromisoformat(item["expires_at"].replace("Z", "+00:00"))
+            self.assertGreater(expires, observed, name)
 
 
 if __name__ == "__main__":
