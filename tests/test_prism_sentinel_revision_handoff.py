@@ -61,9 +61,9 @@ class PrismSentinelRevisionHandoffTests(unittest.TestCase):
         evidence = h["evidence"]
         self.assertEqual(evidence["factory"]["run_head_sha"], h["source_sha"])
         self.assertEqual(evidence["factory"]["run_id"],
-                         int(re.search(r"^RUN = (\\d+)$", self.makeappx, re.MULTILINE).group(1)))
+                         int(re.search(r"^RUN = (\d+)$", self.makeappx, re.MULTILINE).group(1)))
         self.assertEqual(evidence["factory"]["artifact_id"],
-                         int(re.search(r"^ARTIFACT = (\\d+)$", self.makeappx, re.MULTILINE).group(1)))
+                         int(re.search(r"^ARTIFACT = (\d+)$", self.makeappx, re.MULTILINE).group(1)))
         ids = [item["artifact_id"] for item in evidence.values()]
         self.assertEqual(len(ids), len(set(ids)))
         for name, item in evidence.items():
