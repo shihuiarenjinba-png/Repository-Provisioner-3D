@@ -1,0 +1,142 @@
+name: Prism Route 3D revision — authenticated Factory to Provisioner PRE
+
+on:
+  push:
+    branches:
+      - codex/e2e-belt-connection-20261027
+    paths:
+      - .github/workflows/prism-revision-provisioner.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prism-revision-pre:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GODOT_EXE: /tmp/godot-bin/Godot_v4.3-stable_linux.x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline regression before real revision validation
+        run: python -m unittest discover -s tests -v
+      - name: Install official Godot 4.3 with Windows x64 export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 3 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip' -o /tmp/godot.zip
+          curl -fL --retry 3 --retry-delay 3 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz' -o /tmp/templates.tpz
+          mkdir -p /tmp/godot-bin /tmp/godot-tpl "$HOME/.local/share/godot/export_templates/4.3.stable"
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          unzip -q /tmp/templates.tpz -d /tmp/godot-tpl
+          cp -a /tmp/godot-tpl/templates/. "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          chmod +x "$GODOT_EXE"
+          test -s "$HOME/.local/share/godot/export_templates/4.3.stable/windows_release_x86_64.exe"
+      - name: Prepare new immutable revision request and branch-specific config
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          sha='d7f25c76361bfb9fef08b8b571f0b18adece5392'
+          branch='codex/prism-route-trap-tension-20261029'
+          config=json.loads(Path('config.json').read_text())
+          config['source_branch']=branch
+          Path('revision-config.json').write_text(json.dumps(config,indent=2)+'\n')
+          job=dict(schema_version='1.0',request_id='3d-prism-route-3d-'+sha[:12],
+            product_type='GAME_3D',source_factory='3d-game-factory',
+            source_repository='shihuiarenjinba-png/3d-game-factory',
+            source_branch=branch,source_sha=sha,slug='prism-route-3d',
+            display_name='Prism Route 3D',target_owner='shihuiarenjinba-png',
+            dry_run=False,requested_actions=['BUILD_WINDOWS','INSPECT_PACKAGE','LOOKUP_OFFICIAL_IDENTITY','PROPOSE_GITHUB_RETURN'])
+          Path('revision-job.json').write_text(json.dumps(job,indent=2)+'\n')
+          PY
+      - name: Authenticated real Factory run and revision Artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api /repos/shihuiarenjinba-png/3d-game-factory/actions/runs/40858039242 > /tmp/revision-factory-run.json
+          gh api /repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/12889832685 > /tmp/revision-factory-artifact.json
+          python - <<'PY'
+          import json
+          run=json.load(open('/tmp/revision-factory-run.json'))
+          art=json.load(open('/tmp/revision-factory-artifact.json'))
+          sha='d7f25c76361bfb9fef08b8b571f0b18adece5392'
+          assert run['status']=='completed' and run['conclusion']=='success'
+          assert run['head_sha']==sha and run['head_branch']=='codex/prism-route-trap-tension-20261029'
+          assert art['id']==12889832685 and art['workflow_run']['id']==run['id']
+          assert art['name']=='godot-3d-factory-export-evidence' and art['expired'] is False
+          assert art['workflow_run']['head_sha']==sha
+          print('PASS: independently authenticated revision Factory run and artifact metadata')
+          PY
+      - name: Real Provisioner independent Godot export and Factory EXE/PCK byte correlation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python provisioner.py --config revision-config.json --input revision-job.json --output revision-result.json --factory-run-id 40858039242 --factory-artifact-id 12889832685
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          job=json.loads(Path('revision-job.json').read_text())
+          result=json.loads(Path('revision-result.json').read_text())
+          ev=result.get('factory_export_evidence') or {}
+          assert result['status']=='HOLD',result.get('errors')
+          assert ev.get('status')=='PRE_IDENTITY_BYTES_CORRELATED',ev
+          assert ev.get('source_sha')==job['source_sha']
+          assert ev.get('request_id')==job['request_id']
+          assert ev.get('factory_build_head')==job['source_sha']
+          assert ev.get('payload_authority')=='AUTHENTICATED_FACTORY_ARTIFACT'
+          assert result['official_identity']['status']=='UNVERIFIED'
+          assert result['github_return']['status']=='NOT_APPLIED'
+          print('PASS: real revision Factory->Provisioner PRE byte correlation; no Store package claim')
+          PY
+      - name: Check existing Identity is old-source provenance, not revision approval
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api '/repos/shihuiarenjinba-png/3d-game-factory/contents/products/prism-route-3d/store/approved-identity.json?ref=codex%2Fprism-route-trap-tension-20261029' | jq -r .content | base64 -d > /tmp/prism-old-identity.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          old=json.loads(Path('/tmp/prism-old-identity.json').read_text())
+          job=json.loads(Path('revision-job.json').read_text())
+          result=json.loads(Path('revision-result.json').read_text())
+          assert old['source_sha']==old['verified_source_sha']=='15fdcb52e46e35e6de8e87c55af99719c21e09b9'
+          assert old['source_sha']!=job['source_sha']
+          assert old['store_id'] and old['package_family_name'] and old['package_sid']
+          assert old['package_version_gate']=='HOLD'
+          receipt=dict(schema_version=1,product='Prism Route 3D',slug='prism-route-3d',
+            request_id=job['request_id'],new_revision_source_sha=job['source_sha'],
+            factory_run_id=40858039242,factory_artifact_id=12889832685,
+            factory_export_evidence_status=result['factory_export_evidence']['status'],
+            old_identity_provenance_sha=old['source_sha'],
+            existing_store_id=old['store_id'],
+            registration_type='MSIX_OR_PWA_GAME',
+            partner_center_selection='MSIX or PWA game',
+            identity_rebinding_status='HOLD_PENDING_OFFICIAL_CAS_AND_NEW_SOURCE_BINDING',
+            approved_package_version=None,signed_msix_verified=False,
+            windows_all_auto_intake_verified=False,local_gate='DEFERRED_LOCAL_GATE',
+            product_e2e='HOLD',second_3d_product_allowed=False)
+          Path('revision-pre-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          print('PASS: old Identity reuse reference validated as provenance only; post-Identity HOLD')
+          PY
+      - name: Preserve new revision Provisioner and handoff evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-route-3d-sentinel-revision-provisioner-pre
+          path: |
+            revision-job.json
+            revision-result.json
+            revision-pre-receipt.json
+          if-no-files-found: warn
+          retention-days: 7
