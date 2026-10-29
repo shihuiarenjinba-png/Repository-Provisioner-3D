@@ -102,6 +102,18 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
         [IDENTITY_PATH], "identity-only changed file")
     _eq(compare.get("base_commit", {}).get("sha"), handoff["source_sha"],
         "compare base commit")
+    _eq(compare.get("merge_base_commit", {}).get("sha"), handoff["source_sha"],
+        "compare merge base")
+    _eq(compare.get("total_commits"), 1, "identity-only commit count")
+    commits = compare.get("commits")
+    if not isinstance(commits, list) or len(commits) != 1 or not isinstance(commits[0], dict):
+        raise HandoffContractError("missing single Identity-only commit")
+    _eq(commits[0].get("sha"), handoff["observed_factory_branch_head"],
+        "compare head commit")
+    if len(files) != 1 or not isinstance(files[0], dict):
+        raise HandoffContractError("missing Identity-only changed file")
+    _eq(files[0].get("status"), "added", "Identity-only file status")
+    _eq(files[0].get("previous_filename"), None, "Identity-only previous path")
     return {
         "schema_version": "1.0",
         "mode": "GITHUB_API_METADATA_COMPARISON_ONLY",
