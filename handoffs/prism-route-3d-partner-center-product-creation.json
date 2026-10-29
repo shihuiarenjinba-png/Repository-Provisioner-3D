@@ -43,27 +43,27 @@
     "artifact_archive_digest": "sha256:76b5fae99491b70514e3152483e0192ac70b2909d8f6eeb9802a640ad12409b0"
   },
   "provisioner_pre_identity_evidence": {
-    "run_id": 40772096323,
-    "artifact_id": 12851708918,
+    "run_id": 40787778732,
+    "artifact_id": 12859857699,
     "artifact_name": "prism-route-3d-provisioner-pre-identity",
-    "run_head_sha": "30784d0efd902238428313f8b4f150a126139c69",
+    "run_head_sha": "1bd6c255d33e82019a20886d532e412c8f6d70a6",
     "artifact_expired_at_observation": false,
-    "artifact_expires_at": "2026-11-04T21:28:18Z",
-    "artifact_archive_size_bytes": 3826,
-    "artifact_archive_digest": "sha256:47f86cd239339772c1c8d88d216816bdd02c9d948e99365276bf2ce119334555"
+    "artifact_expires_at": "2026-11-04T23:30:43Z",
+    "artifact_archive_size_bytes": 4477,
+    "artifact_archive_digest": "sha256:5d6dace58e72f3f78df67fbc65645742c4156bb001f59d0ebfe11c0f53be2c92"
   },
   "real_makeappx_qa_evidence": {
-    "run_id": 40772096330,
-    "artifact_id": 12853445838,
+    "run_id": 40787778689,
+    "artifact_id": 12859589489,
     "artifact_name": "prism-route-3d-real-makeappx-unsigned-not-store",
-    "run_head_sha": "30784d0efd902238428313f8b4f150a126139c69",
+    "run_head_sha": "1bd6c255d33e82019a20886d532e412c8f6d70a6",
     "artifact_expired_at_observation": false,
-    "artifact_expires_at": "2026-11-02T21:28:07Z",
+    "artifact_expires_at": "2026-11-02T23:30:31Z",
     "qa_only": true,
     "store_ready": false,
     "signed": false,
-    "artifact_archive_size_bytes": 31021712,
-    "artifact_archive_digest": "sha256:e3231851827b3fe3494e4be18d418bb2bd48ff88d0672c3b441547c017879f99"
+    "artifact_archive_size_bytes": 31022039,
+    "artifact_archive_digest": "sha256:99ce050b2b4970ca09733fec1370847979d3e9bf6ae06395fdc43d0e47338b65"
   },
   "controls": {
     "second_3d_product_allowed": false,
@@ -105,16 +105,16 @@
     "msix_safety_qa_receipt": null,
     "intake_status": "HOLD_PRE_MSIX"
   },
-  "evidence_snapshot_note": "GitHub Actions API independently rechecked 2026-10-29 07:2x JST: Factory pinned run 40640951915/artifact 12795476435; real PRE run 40772096323/artifact 12851708918 and unsigned MakeAppx QA run 40772096330/artifact 12853445838 both SUCCESS at Provisioner HEAD 30784d0efd902238428313f8b4f150a126139c69. PRE now includes canary-check-only.json HOLD receipt; independent PCK diagnostic artifact 12851749129 is QA-only and expires within one day. Archive ZIP SHA-256 != EXE/PCK/MSIX payload SHA-256. This is historical metadata, NOT authenticated Partner Center Identity, CAS, signed MSIX, or Windows-all-auto intake. Earlier NOT_CREATED and later manual EXISTS reports require official reconciliation; do not create a duplicate.",
+  "evidence_snapshot_note": "Authenticated GitHub Actions metadata observed 2026-10-29 09:2x JST: immutable Factory run 40640951915/artifact 12795476435; real PRE run 40787778732/artifact 12859857699 (includes read-only and remote-metadata HOLD receipts), PCK diagnostic artifact 12860535735, and unsigned MakeAppx run 40787778689/artifact 12859589489 all succeeded at prior Provisioner HEAD 1bd6c255d33e82019a20886d532e412c8f6d70a6. This snapshot is intentionally historical after subsequent validator/test commits. ZIP digest != EXE/PCK/MSIX payload digest. No authenticated Partner Center Identity, CAS, signed MSIX, or Windows intake; manual existence reports conflict, so no duplicate product creation.",
   "independent_pck_diagnostic_evidence": {
-    "run_id": 40772096323,
-    "artifact_id": 12851749129,
+    "run_id": 40787778732,
+    "artifact_id": 12860535735,
     "artifact_name": "prism-route-3d-independent-pck-diagnostic",
-    "run_head_sha": "30784d0efd902238428313f8b4f150a126139c69",
-    "artifact_expires_at": "2026-10-29T21:28:19Z",
+    "run_head_sha": "1bd6c255d33e82019a20886d532e412c8f6d70a6",
+    "artifact_expires_at": "2026-10-29T23:30:44Z",
     "artifact_expired_at_observation": false,
     "artifact_archive_size_bytes": 13281,
-    "artifact_archive_digest": "sha256:ac5a96ca8a11c3b79fa3993849efc75a0e3b5fd185d3ce65d3b6714c31723fd8",
+    "artifact_archive_digest": "sha256:f21a05ce039cc3167083ac5c346682ce892d6c45f81dd6cf666b69a3a01924c2",
     "diagnostic_only": true,
     "not_store_payload": true,
     "note": "One-day retention, re-export PCK diagnostic; archive SHA is not the PCK payload SHA. Does not prove independent PCK equality without byte comparison."
