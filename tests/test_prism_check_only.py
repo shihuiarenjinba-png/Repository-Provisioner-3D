@@ -22,6 +22,7 @@ class PrismCheckOnlyTests(unittest.TestCase):
         receipt = prism_check_only(self.handoff)
         self.assertEqual(receipt["mode"], "CHECK_ONLY_NO_SIDE_EFFECTS")
         self.assertEqual(receipt["pre_identity_status"], "PRE_IDENTITY_READY")
+        self.assertEqual(receipt["partner_center_product_status"], "UNRECONCILED_MANUAL_OBSERVATIONS")
         self.assertEqual(receipt["product_e2e"], "HOLD")
         self.assertEqual(receipt["identity_status"],
                          "OFFICIAL_CAPTURE_AND_REQUEST_CAS_NOT_PROVEN")

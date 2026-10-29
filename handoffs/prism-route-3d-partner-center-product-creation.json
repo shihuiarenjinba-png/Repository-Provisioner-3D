@@ -13,9 +13,9 @@
   "packaging_strategy": "GODOT_WINDOWS_EXE_PCK_TO_MAKEAPPX_STANDARD_MSIX",
   "registration_type": "MSIX_OR_PWA_GAME",
   "partner_center_selection": "MSIX or PWA game",
-  "partner_center_product_status": "EXISTS_MANUAL_CONFIRMED",
+  "partner_center_product_status": "UNRECONCILED_MANUAL_OBSERVATIONS",
   "partner_center_observation": "17:44 JST overview search returned zero; later local operator manual reference for existing Prism Route 3D was reported to the 48-minute supervisor. This is not proof of authenticated automated capture.",
-  "identity_status": "MANUAL_REFERENCE_OBSERVED__OFFICIAL_CAPTURE_NOT_PROVEN",
+  "identity_status": "OFFICIAL_CAPTURE_NOT_PROVEN",
   "pre_identity_status": "PRE_IDENTITY_READY",
   "post_identity_status": "HOLD",
   "allow_local_product_creation": false,
@@ -76,7 +76,7 @@
     "local_gpu_install_gui": "DEFERRED_LOCAL_GATE"
   },
   "acceptance_conditions": [
-    "Product already exists by manual confirmation: duplicate creation prohibited; do not classify as NOT_CREATED or WAITING_USER_IDENTITY",
+    "Conflicting manual Partner Center existence observations: block creation until authenticated reconciliation; never classify as WAITING_USER_IDENTITY",
     "Preserve immutable source_sha and request_id. Independently verify Factory run.head_sha; record later branch HEAD separately (identity-only drift)",
     "Observed approved-identity.json commit is not a verified CAS return receipt; do not claim IDENTITY_VALIDATED or POST_IDENTITY_READY from its mere presence",
     "36-minute Windows/local owner must authenticate official Partner Center Identity capture and reconcile fields against manual reference; never guess values",

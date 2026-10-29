@@ -41,4 +41,4 @@ python provisioner.py --input job.json --output result.json `
 
 `--factory-run-id` と `--factory-artifact-id` は、受け入れ済み Factory 製品の実際の export run と `godot-3d-factory-export-evidence` Artifact を指定します。GitHub CLI `gh api` は認証済みの GitHub REST API から run と Artifact のメタデータを別々に取得し、Artifact ZIP をダウンロードします。検証器は ZIP の GitHub SHA-256 digest、run 成功状態、`request_id`・`slug`・不変の `source_sha`、別管理の `factory_build_head`、EXE/PCK サイズと SHA-256 を照合します。欠落・不一致・期限切れ・ダウンロード失敗時は **Identity 照会前に HOLD** です。
 
-Identity が未取得でも `factory_export_evidence` に `PRE_IDENTITY_BYTES_CORRELATED` 証拠を保持できます。ただしこの証拠は `POST_IDENTITY_READY`、実製品MSIX、GPU、Windows install、GUI、Store E2E の合格ではありません。新3D製品生成と120時間ゲートは引き続き HOLD です。
+Identity が未取得でも `factory_export_evidence` に `PRE_IDENTITY_BYTES_CORRELATED` 証拠を保持できます。ただしこの証拠は `POST_IDENTITY_READY`、実製品MSIX、GPU、Windows install、GUI、Store E2E の合格ではありません。120時間ゲートはユーザー承認の Prism Route 3D Canary 1本に限り解除済みです。2本目の3D製品生成は48分監督によるPRE_IDENTITY rotation確認まで禁止です。Partner Centerの製品存在報告は矛盾しており、公式照合前の重複作成は禁止です。

@@ -145,11 +145,11 @@ def validate_prism_handoff(data: dict[str, Any]) -> None:
     qa = data["real_makeappx_qa_evidence"]
     if qa.get("qa_only") is not True or qa.get("signed") is not False or qa.get("store_ready") is not False:
         raise HandoffContractError("unsigned MakeAppx QA cannot be promoted to Store")
-    if data.get("partner_center_product_status") != "EXISTS_MANUAL_CONFIRMED":
-        raise HandoffContractError("manual existing product must not be reclassified as not created")
+    if data.get("partner_center_product_status") != "UNRECONCILED_MANUAL_OBSERVATIONS":
+        raise HandoffContractError("Partner Center existence conflict requires official reconciliation")
     if data.get("allow_local_product_creation") is not False:
         raise HandoffContractError("duplicate Partner Center product creation forbidden")
-    if data.get("identity_status") != "MANUAL_REFERENCE_OBSERVED__OFFICIAL_CAPTURE_NOT_PROVEN":
+    if data.get("identity_status") != "OFFICIAL_CAPTURE_NOT_PROVEN":
         raise HandoffContractError("manual reference is not authenticated Identity")
     if data.get("identity_return_file_status") != "EXISTS_UNVERIFIED__NO_CAS_RECEIPT":
         raise HandoffContractError("Identity file presence is not CAS proof")

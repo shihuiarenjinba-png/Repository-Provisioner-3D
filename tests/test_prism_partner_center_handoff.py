@@ -1,4 +1,4 @@
-"""Regression: an existing manually confirmed Store product cannot be recreated."""
+"""Regression: conflicting Store existence observations must block duplicate creation."""
 import copy
 import json
 from pathlib import Path
@@ -19,6 +19,8 @@ class PrismHandoffTests(unittest.TestCase):
 
     def test_current_machine_readable_handoff_is_safe(self):
         validate_prism_handoff(self.handoff)
+        self.assertEqual(self.handoff["partner_center_product_status"], "UNRECONCILED_MANUAL_OBSERVATIONS")
+        self.assertEqual(self.handoff["identity_status"], "OFFICIAL_CAPTURE_NOT_PROVEN")
         self.assertEqual(self.handoff["factory_export_evidence"]["run_id"], 40640951915)
         self.assertEqual(self.handoff["factory_export_evidence"]["artifact_id"], 12795476435)
         self.assertEqual(self.handoff["factory_build_head"], self.handoff["source_sha"])
@@ -36,6 +38,8 @@ class PrismHandoffTests(unittest.TestCase):
     def test_old_not_created_and_waiting_states_are_rejected(self):
         for key, value in (
             ("partner_center_product_status", "NOT_CREATED"),
+            ("partner_center_product_status", "EXISTS_MANUAL_CONFIRMED"),
+            ("partner_center_product_status", "WAITING_USER_IDENTITY"),
             ("identity_status", "WAITING_USER_IDENTITY"),
             ("identity_status", "IDENTITY_VALIDATED"),
             ("identity_return_cas_receipt_status", "APPLIED"),
