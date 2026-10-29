@@ -71,7 +71,8 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
     validate_prism_handoff(handoff)
     if not isinstance(remote, dict) or set(remote) != {
         "factory_run", "factory_artifact", "pre_run", "pre_artifact",
-        "qa_run", "qa_artifact", "pck_artifact", "factory_compare"
+        "qa_run", "qa_artifact", "pck_artifact", "factory_compare",
+        "factory_branch"
     } or not all(isinstance(v, dict) for v in remote.values()):
         raise HandoffContractError("missing remote GitHub API observations")
     now = now_utc or datetime.now(timezone.utc)
@@ -96,6 +97,15 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
     _eq(pck["run_head_sha"], pre["run_head_sha"], "PCK parent HEAD")
     _check_artifact(remote["pck_artifact"], pck, pre["run_head_sha"],
                     PROVISIONER_BRANCH, now)
+    # A valid historical Identity-only compare does not prove that the
+    # current Factory branch still points to the same observed commit.
+    branch_snapshot = remote["factory_branch"]
+    _eq(branch_snapshot.get("name"), FACTORY_BRANCH, "current Factory branch name")
+    branch_commit = branch_snapshot.get("commit")
+    if not isinstance(branch_commit, dict):
+        raise HandoffContractError("missing current Factory branch commit")
+    _eq(branch_commit.get("sha"), handoff["observed_factory_branch_head"],
+        "current Factory branch HEAD")
     compare = remote["factory_compare"]
     _eq(compare.get("status"), "ahead", "identity-only compare status")
     _eq(compare.get("ahead_by"), 1, "identity-only compare ahead")
@@ -131,6 +141,7 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
         "pck_diagnostic_artifact_id": pck["artifact_id"],
         "pck_payload_bytes_verified_by_this_check": False,
         "metadata_comparison": "PASS_CALLER_SUPPLIED_API_RESPONSES",
+        "factory_branch_head_matched_snapshot": True,
         "zip_bytes_verified_by_this_check": False,
         "partner_center_identity_verified": False,
         "cas_receipt_verified": False,
