@@ -139,6 +139,21 @@ class PrismCheckOnlyTests(unittest.TestCase):
         self.assertFalse(after["artifact_snapshot_freshness"][
             "remote_artifact_retrieval_verified"])
 
+    def test_short_lived_independent_pck_expiry_is_reported_separately(self):
+        before = prism_check_only(self.handoff, now_utc=datetime(
+            2026, 10, 29, 22, 0, tzinfo=timezone.utc))
+        self.assertEqual(before["artifact_snapshot_freshness"]["roles"][
+            "independent_pck_diagnostic"], "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY")
+        after = prism_check_only(self.handoff, now_utc=datetime(
+            2026, 10, 30, 0, 0, tzinfo=timezone.utc))
+        self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
+            "independent_pck_diagnostic"], "EXPIRED_REQUIRES_REMOTE_REFRESH")
+        self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
+            "provisioner_pre_identity"], "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY")
+        self.assertEqual(after["product_e2e"], "HOLD")
+        self.assertFalse(after["artifact_snapshot_freshness"][
+            "remote_artifact_retrieval_verified"])
+
     def test_naive_clock_and_invalid_expiry_fail_closed(self):
         with self.assertRaisesRegex(HandoffContractError, "timezone-aware"):
             prism_check_only(self.handoff, now_utc=datetime(2026, 10, 29))
