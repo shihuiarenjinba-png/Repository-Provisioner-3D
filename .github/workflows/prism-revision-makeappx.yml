@@ -7,6 +7,8 @@ on:
     paths:
       - .github/workflows/prism-revision-makeappx.yml
       - tests/prism_revision_makeappx.py
+      - .github/workflows/prism-revision-provisioner.yml
+      - tests/test_prism_revision_pin_consistency.py
   workflow_dispatch:
 
 permissions:
