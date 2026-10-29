@@ -9,6 +9,7 @@ import re
 
 SHA = re.compile(r"[0-9a-f]{40}\Z")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
+PINNED_SENTINEL_SOURCE_SHA = "e432d94ed0db22878f61f1a8af140d7d7de2288f"
 ARTIFACTS = {
     "factory": "godot-3d-factory-export-evidence",
     "provisioner_pre": "prism-route-3d-sentinel-revision-provisioner-pre",
@@ -40,6 +41,8 @@ def validate_revision_handoff(h, *, now=None, require_unexpired=True):
     source = h.get("source_sha")
     if not isinstance(source, str) or not SHA.fullmatch(source):
         raise RevisionHandoffError("invalid source_sha")
+    if source != PINNED_SENTINEL_SOURCE_SHA:
+        raise RevisionHandoffError("unapproved Sentinel source revision")
     expected = {
         "product": "Prism Route 3D",
         "slug": "prism-route-3d",
