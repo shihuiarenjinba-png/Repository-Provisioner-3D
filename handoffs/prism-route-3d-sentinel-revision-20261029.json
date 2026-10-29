@@ -46,38 +46,38 @@
       "expires_at": "2026-11-05T15:24:12Z"
     },
     "provisioner_pre": {
-      "run_id": 40901705827,
-      "run_head_sha": "352d3b078bb3e86398014ef0d5280e6214de84f6",
-      "artifact_id": 12908494691,
+      "run_id": 40957492566,
+      "run_head_sha": "4216a3e8676d84e7f0305c4720f2ae39e07f8e57",
+      "artifact_id": 12934601669,
       "artifact_name": "prism-route-3d-sentinel-revision-provisioner-pre",
-      "archive_digest": "sha256:2b96414a78215648470f33ab9d1bd401d3e38e8b3d9c422a5459783fe77066e0",
+      "archive_digest": "sha256:07aba4681838cf12bb0041d87bf984f461176cef3490d5a80233afe490a919fd",
       "archive_bytes": 2483,
-      "expires_at": "2026-11-05T15:27:58Z"
+      "expires_at": "2026-11-05T21:24:55Z"
     },
     "unsigned_makeappx": {
-      "run_id": 40901705791,
-      "run_head_sha": "352d3b078bb3e86398014ef0d5280e6214de84f6",
-      "artifact_id": 12910081529,
+      "run_id": 40957492480,
+      "run_head_sha": "4216a3e8676d84e7f0305c4720f2ae39e07f8e57",
+      "artifact_id": 12934172246,
       "artifact_name": "prism-route-3d-sentinel-revision-makeappx-unsigned-qa",
-      "archive_digest": "sha256:387b28cec1ba76b3df486f69464383d087771bf12dbdacfd163d22af2fc0fe4d",
-      "archive_bytes": 31031430,
-      "expires_at": "2026-11-03T15:27:58Z",
+      "archive_digest": "sha256:99f67b8ab23d7aecea316e9069644a10db25c4bdf4d0542f6c01e6092e8fa9f3",
+      "archive_bytes": 31031429,
+      "expires_at": "2026-11-03T21:24:45Z",
       "signed": false,
       "store_ready": false
     },
     "independent_pck_diagnostic": {
-      "run_id": 40901705421,
-      "run_head_sha": "352d3b078bb3e86398014ef0d5280e6214de84f6",
-      "artifact_id": 12910385646,
+      "run_id": 40957492562,
+      "run_head_sha": "4216a3e8676d84e7f0305c4720f2ae39e07f8e57",
+      "artifact_id": 12933953273,
       "artifact_name": "prism-route-3d-independent-pck-diagnostic",
-      "archive_digest": "sha256:f37e07b712b547a58ea48c0b41a967a01a1c469eb64662c399d9e52589698f62",
-      "archive_bytes": 13283,
-      "expires_at": "2026-10-30T15:28:05Z",
+      "archive_digest": "sha256:d472d25cec746cb9c2b05724754bdcb4d4d4d4726a26ac942b3e41b41ee26a0f",
+      "archive_bytes": 13281,
+      "expires_at": "2026-10-30T21:24:59Z",
       "diagnostic_only": true,
       "not_store_payload": true
     }
   },
-  "evidence_observed_at": "2026-10-29T16:21:50Z",
+  "evidence_observed_at": "2026-10-29T21:25:15Z",
   "evidence_observation_scope": "Authenticated GitHub Actions API metadata: pinned new-source Factory export, revision PRE and unsigned MakeAppx QA completed successfully; independent PCK diagnostic is original-source only, not new-revision Store payload. The Provisioner run HEAD is a verified historical run snapshot, not a claim that the handoff-writing commit itself was used. ZIP digests are archive digests, not EXE/PCK/MSIX payload hashes; recheck expiration and bytes at use time.",
   "gates": {
     "factory_export": "PASS_PREVIOUS_RUN",
