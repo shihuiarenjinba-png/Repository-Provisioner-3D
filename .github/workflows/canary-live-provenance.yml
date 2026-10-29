@@ -126,13 +126,24 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/prism-api
-          gh api --method GET /repos/shihuiarenjinba-png/3d-game-factory/actions/runs/40640951915 > /tmp/prism-api/factory_run.json
-          gh api --method GET /repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/12795476435 > /tmp/prism-api/factory_artifact.json
-          gh api --method GET /repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/40772096323 > /tmp/prism-api/pre_run.json
-          gh api --method GET /repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/12851708918 > /tmp/prism-api/pre_artifact.json
-          gh api --method GET /repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/40772096330 > /tmp/prism-api/qa_run.json
-          gh api --method GET /repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/12853445838 > /tmp/prism-api/qa_artifact.json
-          gh api --method GET /repos/shihuiarenjinba-png/3d-game-factory/compare/15fdcb52e46e35e6de8e87c55af99719c21e09b9...11417b75636ee18816028ffd5221884c4c9a9836 > /tmp/prism-api/factory_compare.json
+          # Read the same versioned handoff that the validator checks. Do not
+          # hardcode older run/artifact IDs: they rotate after each real Canary.
+          handoff=handoffs/prism-route-3d-partner-center-product-creation.json
+          factory_run_id="$(jq -er '.factory_export_evidence.run_id | select(type == "number" and . > 0)' "$handoff")"
+          factory_artifact_id="$(jq -er '.factory_export_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
+          pre_run_id="$(jq -er '.provisioner_pre_identity_evidence.run_id | select(type == "number" and . > 0)' "$handoff")"
+          pre_artifact_id="$(jq -er '.provisioner_pre_identity_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
+          qa_run_id="$(jq -er '.real_makeappx_qa_evidence.run_id | select(type == "number" and . > 0)' "$handoff")"
+          qa_artifact_id="$(jq -er '.real_makeappx_qa_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
+          source_sha="$(jq -er '.source_sha | select(test("^[0-9a-f]{40}$"))' "$handoff")"
+          observed_head="$(jq -er '.observed_factory_branch_head | select(test("^[0-9a-f]{40}$"))' "$handoff")"
+          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/actions/runs/$factory_run_id" > /tmp/prism-api/factory_run.json
+          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/$factory_artifact_id" > /tmp/prism-api/factory_artifact.json
+          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/$pre_run_id" > /tmp/prism-api/pre_run.json
+          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pre_artifact_id" > /tmp/prism-api/pre_artifact.json
+          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/$qa_run_id" > /tmp/prism-api/qa_run.json
+          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$qa_artifact_id" > /tmp/prism-api/qa_artifact.json
+          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/compare/$source_sha...$observed_head" > /tmp/prism-api/factory_compare.json
           python - <<'PY'
           import json
           from pathlib import Path
