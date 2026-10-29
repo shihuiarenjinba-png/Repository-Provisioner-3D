@@ -62,6 +62,17 @@ class PrismRevisionHandoffRuntimeTests(unittest.TestCase):
                 with self.assertRaises(RevisionHandoffError):
                     validate_revision_handoff(changed, now=self.observed + timedelta(seconds=1))
 
+    def test_self_consistent_source_rebinding_rejected(self):
+        # A substituted revision can satisfy the derived request_id and Factory
+        # run HEAD checks; the original approved Sentinel source must still win.
+        changed = copy.deepcopy(self.h)
+        impostor = "f" * 40
+        changed["source_sha"] = impostor
+        changed["request_id"] = "3d-prism-route-3d-" + impostor[:12]
+        changed["evidence"]["factory"]["run_head_sha"] = impostor
+        with self.assertRaisesRegex(RevisionHandoffError, "unapproved Sentinel source revision"):
+            validate_revision_handoff(changed, now=self.observed + timedelta(seconds=1))
+
     def test_naive_clock_rejected(self):
         with self.assertRaisesRegex(RevisionHandoffError, "timezone aware"):
             validate_revision_handoff(self.h, now=datetime(2026, 10, 30))
