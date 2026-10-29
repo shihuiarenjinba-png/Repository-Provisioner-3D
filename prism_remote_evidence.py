@@ -18,6 +18,9 @@ FACTORY_REPO = "shihuiarenjinba-png/3d-game-factory"
 PROVISIONER_REPO = "shihuiarenjinba-png/Repository-Provisioner-3D"
 FACTORY_BRANCH = "codex/3d-canary-prism-route-20261028"
 PROVISIONER_BRANCH = "codex/e2e-belt-connection-20261027"
+# Stable GitHub repository IDs prevent cross-repository artifact substitution.
+FACTORY_REPOSITORY_ID = 1434223918
+PROVISIONER_REPOSITORY_ID = 1434261585
 IDENTITY_PATH = "products/prism-route-3d/store/approved-identity.json"
 
 
@@ -47,7 +50,7 @@ def _check_run(run: dict[str, Any], evidence: dict[str, Any], branch: str,
 
 
 def _check_artifact(artifact: dict[str, Any], evidence: dict[str, Any],
-                    head: str, branch: str, now: datetime) -> None:
+                    head: str, branch: str, now: datetime, repo_id: int) -> None:
     _eq(artifact.get("id"), evidence["artifact_id"], "artifact id")
     _eq(artifact.get("name"), evidence["artifact_name"], "artifact name")
     _eq(artifact.get("expired"), False, "artifact expired flag")
@@ -61,6 +64,8 @@ def _check_artifact(artifact: dict[str, Any], evidence: dict[str, Any],
     provenance = artifact.get("workflow_run")
     if not isinstance(provenance, dict):
         raise HandoffContractError("missing artifact workflow_run provenance")
+    _eq(provenance.get("repository_id"), repo_id, "artifact parent repository")
+    _eq(provenance.get("head_repository_id"), repo_id, "artifact source repository")
     _eq(provenance.get("id"), evidence["run_id"], "artifact parent run")
     _eq(provenance.get("head_sha"), head, "artifact parent HEAD")
     _eq(provenance.get("head_branch"), branch, "artifact parent branch")
@@ -85,18 +90,18 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
     pck = handoff["independent_pck_diagnostic_evidence"]
     _check_run(remote["factory_run"], factory, FACTORY_BRANCH, handoff["source_sha"])
     _check_artifact(remote["factory_artifact"], factory, handoff["source_sha"],
-                    FACTORY_BRANCH, now)
+                    FACTORY_BRANCH, now, FACTORY_REPOSITORY_ID)
     for run_key, artifact_key, evidence in (
         ("pre_run", "pre_artifact", pre), ("qa_run", "qa_artifact", qa)
     ):
         _check_run(remote[run_key], evidence, PROVISIONER_BRANCH,
                    evidence["run_head_sha"])
         _check_artifact(remote[artifact_key], evidence, evidence["run_head_sha"],
-                        PROVISIONER_BRANCH, now)
+                        PROVISIONER_BRANCH, now, PROVISIONER_REPOSITORY_ID)
     _eq(pck["run_id"], pre["run_id"], "PCK parent PRE run")
     _eq(pck["run_head_sha"], pre["run_head_sha"], "PCK parent HEAD")
     _check_artifact(remote["pck_artifact"], pck, pre["run_head_sha"],
-                    PROVISIONER_BRANCH, now)
+                    PROVISIONER_BRANCH, now, PROVISIONER_REPOSITORY_ID)
     # A valid historical Identity-only compare does not prove that the
     # current Factory branch still points to the same observed commit.
     branch_snapshot = remote["factory_branch"]
