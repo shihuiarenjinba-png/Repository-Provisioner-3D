@@ -50,7 +50,11 @@ class RemoteEvidenceTests(unittest.TestCase):
             "factory_compare": {
                 "status": "ahead", "ahead_by": 1, "behind_by": 0,
                 "base_commit": {"sha": h["source_sha"]},
-                "files": [{"filename": "products/prism-route-3d/store/approved-identity.json"}],
+                "merge_base_commit": {"sha": h["source_sha"]},
+                "total_commits": 1,
+                "commits": [{"sha": h["observed_factory_branch_head"]}],
+                "files": [{"filename": "products/prism-route-3d/store/approved-identity.json",
+                           "status": "added", "previous_filename": None}],
             },
         }
 
@@ -95,6 +99,24 @@ class RemoteEvidenceTests(unittest.TestCase):
         data["factory_compare"]["files"].append({"filename": "project.godot"})
         with self.assertRaises(HandoffContractError):
             verify_remote_snapshot(self.handoff, data, now_utc=NOW)
+
+    def test_identity_only_compare_must_match_exact_commit_and_file_status(self):
+        cases = (
+            ("merge_base_commit", {"sha": "f" * 40}),
+            ("total_commits", 2),
+            ("commits", [{"sha": "f" * 40}]),
+            ("commits", []),
+            ("files", [{"filename": "products/prism-route-3d/store/approved-identity.json",
+                        "status": "modified", "previous_filename": None}]),
+            ("files", [{"filename": "products/prism-route-3d/store/approved-identity.json",
+                        "status": "added", "previous_filename": "old.json"}]),
+        )
+        for field, value in cases:
+            with self.subTest(field=field, value=value):
+                data = self.remote()
+                data["factory_compare"][field] = value
+                with self.assertRaises(HandoffContractError):
+                    verify_remote_snapshot(self.handoff, data, now_utc=NOW)
 
     def test_missing_expired_or_untrusted_input_rejected(self):
         data = self.remote()
