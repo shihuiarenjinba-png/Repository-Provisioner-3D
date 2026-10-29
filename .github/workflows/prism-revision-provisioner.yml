@@ -6,6 +6,7 @@ on:
       - codex/e2e-belt-connection-20261027
     paths:
       - .github/workflows/prism-revision-provisioner.yml
+      - .github/workflows/prism-revision-makeappx.yml
       - tests/prism_revision_makeappx.py
       - tests/test_prism_revision_pin_consistency.py
   workflow_dispatch:
