@@ -164,6 +164,12 @@ def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
         "unsigned_makeappx": "codex/e2e-belt-connection-20261027",
         "independent_pck_diagnostic": "codex/e2e-belt-connection-20261027",
     }
+    expected_workflows = {
+        "factory": (".github/workflows/prism-route-canary-export.yml", 399058278),
+        "provisioner_pre": (".github/workflows/prism-revision-provisioner.yml", 400477810),
+        "unsigned_makeappx": (".github/workflows/prism-revision-makeappx.yml", 400479598),
+        "independent_pck_diagnostic": (".github/workflows/canary-live-provenance.yml", 399059609),
+    }
     checked = []
     for kind, repo in expected_repositories.items():
         item = h["evidence"][kind]
@@ -182,6 +188,9 @@ def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
                 or run.get("head_sha") != item["run_head_sha"]
                 or run.get("head_branch") != expected_branches[kind]
                 or run.get("event") != "push"
+                or run.get("path") != expected_workflows[kind][0]
+                or type(run.get("workflow_id")) is not int
+                or run["workflow_id"] != expected_workflows[kind][1]
                 or not isinstance(run.get("repository"), dict)
                 or type(run["repository"].get("id")) is not int
                 or run["repository"]["id"] != repository_id
