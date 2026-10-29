@@ -95,10 +95,13 @@ class PrismGithubMetadataTests(unittest.TestCase):
             branch = ("codex/prism-route-trap-tension-20261029" if kind == "factory"
                       else "codex/e2e-belt-connection-20261027")
             key = (repo, item["run_id"])
+            repository_id = (1434223918 if kind == "factory" else 1434261585)
             runs[key] = {
                 "id": item["run_id"], "status": "completed",
                 "conclusion": "success", "event": "push",
                 "head_sha": item["run_head_sha"], "head_branch": branch,
+                "repository": {"id": repository_id},
+                "head_repository": {"id": repository_id},
             }
             artifacts.setdefault(key, []).append({
                 "id": item["artifact_id"], "name": item["artifact_name"],
@@ -107,8 +110,8 @@ class PrismGithubMetadataTests(unittest.TestCase):
                 "expires_at": item["expires_at"],
                 "workflow_run": {
                     "id": item["run_id"], "head_sha": item["run_head_sha"],
-                    "head_branch": branch, "repository_id": 12345,
-                    "head_repository_id": 12345,
+                    "head_branch": branch, "repository_id": repository_id,
+                    "head_repository_id": repository_id,
                 },
             })
         return runs, artifacts
@@ -140,6 +143,11 @@ class PrismGithubMetadataTests(unittest.TestCase):
             ("wrong run head", lambda r, a: r[key].update(head_sha="f" * 40)),
             ("unsafe branch", lambda r, a: r[key].update(head_branch="main")),
             ("unexpected event", lambda r, a: r[key].update(event="pull_request")),
+            ("wrong run repository", lambda r, a: r[key]["repository"].update(id=999999)),
+            ("wrong run head repository", lambda r, a: r[key]["head_repository"].update(id=999999)),
+            ("missing run repository", lambda r, a: r[key].pop("repository")),
+            ("wrong artifact parent repository", lambda r, a: a[key][0]["workflow_run"].update(repository_id=999999)),
+            ("same forged artifact repository IDs", lambda r, a: a[key][0]["workflow_run"].update(repository_id=999999, head_repository_id=999999)),
             ("missing artifact", lambda r, a: a[key].clear()),
             ("wrong archive hash", lambda r, a: a[key][0].update(digest="sha256:" + "f" * 64)),
             ("wrong archive size", lambda r, a: a[key][0].update(size_in_bytes=1)),
