@@ -6,8 +6,8 @@
   "slug": "prism-route-3d",
   "source_repository": "shihuiarenjinba-png/3d-game-factory",
   "source_branch": "codex/prism-route-trap-tension-20261029",
-  "source_sha": "369245118248373a06850e40dbe80da91f9b8892",
-  "request_id": "3d-prism-route-3d-369245118248",
+  "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "request_id": "3d-prism-route-3d-e432d94ed0db",
   "immutable_original_provenance": {
     "source_sha": "15fdcb52e46e35e6de8e87c55af99719c21e09b9",
     "identity_reference_commit": "11417b75636ee18816028ffd5221884c4c9a9836",
@@ -37,13 +37,13 @@
   },
   "evidence": {
     "factory": {
-      "run_id": 40881578087,
-      "run_head_sha": "369245118248373a06850e40dbe80da91f9b8892",
-      "artifact_id": 12900891611,
+      "run_id": 40901053437,
+      "run_head_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+      "artifact_id": 12909162367,
       "artifact_name": "godot-3d-factory-export-evidence",
-      "archive_digest": "sha256:154c95bfebe6e2b202a64bcd062ae71ff632d44db306d783ba2b1ce74ab5ce0c",
-      "archive_bytes": 30879600,
-      "expires_at": "2026-11-05T13:24:53Z"
+      "archive_digest": "sha256:dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c",
+      "archive_bytes": 30880705,
+      "expires_at": "2026-11-05T15:24:12Z"
     },
     "provisioner_pre": {
       "run_id": 40882034737,
@@ -77,20 +77,21 @@
       "not_store_payload": true
     }
   },
-  "evidence_observed_at": "2026-10-29T14:28:00Z",
-  "evidence_observation_scope": "GitHub Actions metadata only; artifact ZIP hashes are archive digests, not EXE/PCK/MSIX payload hashes; recheck expiration at use time",
+  "evidence_observed_at": "2026-10-29T15:25:00Z",
+  "evidence_observation_scope": "Current Factory run and artifact verified via GitHub API; PRE and MakeAppx evidence still refer to the preceding revision until fresh runs finish. ZIP digests are archive digests, not EXE/PCK/MSIX payload hashes; recheck expiration at use time",
   "gates": {
     "factory_export": "PASS_PREVIOUS_RUN",
     "godot_windows_export": "PASS_PREVIOUS_RUN",
-    "exe_pck_provisioner": "PASS_PREVIOUS_RUN",
-    "pre_identity": "PASS_PREVIOUS_RUN",
+    "exe_pck_provisioner": "HOLD_PENDING_NEW_REVISION_PRE",
+    "pre_identity": "HOLD_PENDING_NEW_REVISION_PRE",
     "registration_type": "MSIX_OR_PWA_GAME",
     "identity_cas": "HOLD",
     "approved_package_version": "HOLD",
     "signed_post_identity_msix": "HOLD",
     "windows_all_auto_intake": "HOLD",
     "local_gpu_install_gui": "DEFERRED_LOCAL_GATE",
-    "product_e2e": "HOLD"
+    "product_e2e": "HOLD",
+    "unsigned_makeappx": "HOLD_PENDING_NEW_REVISION_QA"
   },
   "controls": {
     "second_3d_product_allowed": false,
@@ -100,5 +101,5 @@
     "auto_merge_allowed": false
   },
   "handoff_owner": "36-minute Windows/local lane",
-  "next_action": "Reconcile official Partner Center product existence and identity with authenticated CAS; approve new source/version binding before post-Identity MSIX. Never create duplicate product."
+  "next_action": "Run exact new Factory SHA through independent PRE and unsigned MakeAppx; then reconcile official Partner Center Identity/CAS and Version. Do not create duplicate product."
 }

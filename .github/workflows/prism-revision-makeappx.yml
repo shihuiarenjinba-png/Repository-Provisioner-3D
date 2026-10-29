@@ -9,6 +9,8 @@ on:
       - tests/prism_revision_makeappx.py
       - .github/workflows/prism-revision-provisioner.yml
       - tests/test_prism_revision_pin_consistency.py
+      - tests/test_prism_sentinel_revision_handoff.py
+      - handoffs/prism-route-3d-sentinel-revision-20261029.json
   workflow_dispatch:
 
 permissions:

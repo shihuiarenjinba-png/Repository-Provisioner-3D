@@ -52,7 +52,7 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          sha='369245118248373a06850e40dbe80da91f9b8892'
+          sha='e432d94ed0db22878f61f1a8af140d7d7de2288f'
           branch='codex/prism-route-trap-tension-20261029'
           config=json.loads(Path('config.json').read_text())
           config['source_branch']=branch
@@ -69,16 +69,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh api /repos/shihuiarenjinba-png/3d-game-factory/actions/runs/40881578087 > /tmp/revision-factory-run.json
-          gh api /repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/12900891611 > /tmp/revision-factory-artifact.json
+          gh api /repos/shihuiarenjinba-png/3d-game-factory/actions/runs/40901053437 > /tmp/revision-factory-run.json
+          gh api /repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/12909162367 > /tmp/revision-factory-artifact.json
           python - <<'PY'
           import json
           run=json.load(open('/tmp/revision-factory-run.json'))
           art=json.load(open('/tmp/revision-factory-artifact.json'))
-          sha='369245118248373a06850e40dbe80da91f9b8892'
+          sha='e432d94ed0db22878f61f1a8af140d7d7de2288f'
           assert run['status']=='completed' and run['conclusion']=='success'
           assert run['head_sha']==sha and run['head_branch']=='codex/prism-route-trap-tension-20261029'
-          assert art['id']==12900891611 and art['workflow_run']['id']==run['id']
+          assert art['id']==12909162367 and art['workflow_run']['id']==run['id']
           assert art['name']=='godot-3d-factory-export-evidence' and art['expired'] is False
           assert art['workflow_run']['head_sha']==sha
           print('PASS: independently authenticated revision Factory run and artifact metadata')
@@ -90,7 +90,7 @@ jobs:
           # A safe PRE_IDENTITY HOLD intentionally exits 2; inspect the JSON
           # rather than mistaking that documented gate for an infrastructure failure.
           set +e
-          python provisioner.py --config revision-config.json --input revision-job.json --output revision-result.json --factory-run-id 40881578087 --factory-artifact-id 12900891611
+          python provisioner.py --config revision-config.json --input revision-job.json --output revision-result.json --factory-run-id 40901053437 --factory-artifact-id 12909162367
           code=$?
           set -e
           if [ "$code" -ne 2 ]; then
@@ -130,7 +130,7 @@ jobs:
           assert old['package_version_gate']=='HOLD'
           receipt=dict(schema_version=1,product='Prism Route 3D',slug='prism-route-3d',
             request_id=job['request_id'],new_revision_source_sha=job['source_sha'],
-            factory_run_id=40881578087,factory_artifact_id=12900891611,
+            factory_run_id=40901053437,factory_artifact_id=12909162367,
             factory_export_evidence_status=result['factory_export_evidence']['status'],
             old_identity_provenance_sha=old['source_sha'],
             existing_store_id=old['store_id'],

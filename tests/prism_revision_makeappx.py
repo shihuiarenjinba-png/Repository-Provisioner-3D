@@ -14,10 +14,10 @@ from unittest.mock import patch
 import zipfile
 
 REPO = "shihuiarenjinba-png/3d-game-factory"
-SOURCE = "369245118248373a06850e40dbe80da91f9b8892"
-REQUEST = "3d-prism-route-3d-369245118248"
-RUN = 40881578087
-ARTIFACT = 12900891611
+SOURCE = "e432d94ed0db22878f61f1a8af140d7d7de2288f"
+REQUEST = "3d-prism-route-3d-e432d94ed0db"
+RUN = 40901053437
+ARTIFACT = 12909162367
 QA_SHA = "e84c448e48105d15d2040f87fb279835ddd0119b"
 
 def digest(path):
