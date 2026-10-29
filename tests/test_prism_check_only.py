@@ -1,6 +1,6 @@
 """Fail-closed check-only regression for the single pinned real 3D Canary."""
 import copy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 import unittest
@@ -120,14 +120,25 @@ class PrismCheckOnlyTests(unittest.TestCase):
                     prism_check_only(self.handoff, {"unsigned_qa_msix_sha256": bad})
 
     def test_expiry_is_recomputed_not_trusted_from_stale_snapshot(self):
-        before = prism_check_only(self.handoff, now_utc=datetime(
-            2026, 10, 29, 1, 25, tzinfo=timezone.utc))
+        # Snapshot artifact IDs rotate. Derive boundary clocks from the
+        # actual recorded expiries instead of freezing old run timestamps.
+        def expiry(section):
+            return datetime.strptime(
+                self.handoff[section]["artifact_expires_at"],
+                "%Y-%m-%dT%H:%M:%SZ",
+            ).replace(tzinfo=timezone.utc)
+
+        factory_expiry = expiry("factory_export_evidence")
+        pre_expiry = expiry("provisioner_pre_identity_evidence")
+        qa_expiry = expiry("real_makeappx_qa_evidence")
+        before_time = min(factory_expiry, qa_expiry) - timedelta(seconds=1)
+        before = prism_check_only(self.handoff, now_utc=before_time)
         self.assertEqual(before["artifact_snapshot_freshness"]["roles"][
             "unsigned_makeappx_qa"], "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY")
         self.assertEqual(before["artifact_snapshot_freshness"]["roles"][
             "factory_export"], "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY")
-        after = prism_check_only(self.handoff, now_utc=datetime(
-            2026, 11, 5, tzinfo=timezone.utc))
+        after_time = max(factory_expiry, pre_expiry, qa_expiry) + timedelta(seconds=1)
+        after = prism_check_only(self.handoff, now_utc=after_time)
         self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
             "factory_export"], "EXPIRED_REQUIRES_REMOTE_REFRESH")
         self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
@@ -140,12 +151,21 @@ class PrismCheckOnlyTests(unittest.TestCase):
             "remote_artifact_retrieval_verified"])
 
     def test_short_lived_independent_pck_expiry_is_reported_separately(self):
-        before = prism_check_only(self.handoff, now_utc=datetime(
-            2026, 10, 29, 22, 0, tzinfo=timezone.utc))
+        pck_expiry = datetime.strptime(
+            self.handoff["independent_pck_diagnostic_evidence"]["artifact_expires_at"],
+            "%Y-%m-%dT%H:%M:%SZ",
+        ).replace(tzinfo=timezone.utc)
+        pre_expiry = datetime.strptime(
+            self.handoff["provisioner_pre_identity_evidence"]["artifact_expires_at"],
+            "%Y-%m-%dT%H:%M:%SZ",
+        ).replace(tzinfo=timezone.utc)
+        self.assertGreater(pre_expiry, pck_expiry + timedelta(seconds=1))
+        before = prism_check_only(
+            self.handoff, now_utc=pck_expiry - timedelta(seconds=1))
         self.assertEqual(before["artifact_snapshot_freshness"]["roles"][
             "independent_pck_diagnostic"], "NOT_EXPIRED_BY_SNAPSHOT_TIME_ONLY")
-        after = prism_check_only(self.handoff, now_utc=datetime(
-            2026, 10, 30, 0, 0, tzinfo=timezone.utc))
+        after = prism_check_only(
+            self.handoff, now_utc=pck_expiry + timedelta(seconds=1))
         self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
             "independent_pck_diagnostic"], "EXPIRED_REQUIRES_REMOTE_REFRESH")
         self.assertEqual(after["artifact_snapshot_freshness"]["roles"][
