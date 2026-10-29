@@ -147,7 +147,7 @@ jobs:
           gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pck_artifact_id" > /tmp/prism-api/pck_artifact.json
           gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/compare/$source_sha...$observed_head" > /tmp/prism-api/factory_compare.json
           # Compare is historical; also verify the current remote Factory HEAD.
-          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/branches/codex%2F3d-canary-prism-route-20261028" > /tmp/prism-api/factory_branch.json
+          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/branches/codex/3d-canary-prism-route-20261028" > /tmp/prism-api/factory_branch.json
           python - <<'PY'
           import json
           from pathlib import Path
