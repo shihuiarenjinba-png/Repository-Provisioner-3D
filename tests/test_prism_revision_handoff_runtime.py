@@ -78,5 +78,96 @@ class PrismRevisionHandoffRuntimeTests(unittest.TestCase):
             validate_revision_handoff(self.h, now=datetime(2026, 10, 30))
 
 
+class PrismGithubMetadataTests(unittest.TestCase):
+    """Offline mock of GitHub's documented run/artifact response shapes."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.h = json.loads(HANDOFF.read_text(encoding="utf-8"))
+        cls.observed = datetime.fromisoformat(
+            cls.h["evidence_observed_at"].replace("Z", "+00:00"))
+
+    def make_api(self):
+        runs, artifacts = {}, {}
+        for kind, item in self.h["evidence"].items():
+            repo = ("shihuiarenjinba-png/3d-game-factory" if kind == "factory"
+                    else "shihuiarenjinba-png/Repository-Provisioner-3D")
+            branch = ("codex/prism-route-trap-tension-20261029" if kind == "factory"
+                      else "codex/e2e-belt-connection-20261027")
+            key = (repo, item["run_id"])
+            runs[key] = {
+                "id": item["run_id"], "status": "completed",
+                "conclusion": "success", "event": "push",
+                "head_sha": item["run_head_sha"], "head_branch": branch,
+            }
+            artifacts.setdefault(key, []).append({
+                "id": item["artifact_id"], "name": item["artifact_name"],
+                "size_in_bytes": item["archive_bytes"],
+                "digest": item["archive_digest"], "expired": False,
+                "expires_at": item["expires_at"],
+                "workflow_run": {
+                    "id": item["run_id"], "head_sha": item["run_head_sha"],
+                    "head_branch": branch, "repository_id": 12345,
+                    "head_repository_id": 12345,
+                },
+            })
+        return runs, artifacts
+
+    def check(self, runs, artifacts):
+        from prism_revision_handoff_contract import verify_github_metadata
+        return verify_github_metadata(
+            self.h, now=self.observed + timedelta(seconds=1),
+            fetch_run=lambda repo, run_id: runs[(repo, run_id)],
+            fetch_artifacts=lambda repo, run_id: artifacts[(repo, run_id)],
+        )
+
+    def test_api_metadata_match_remains_hold(self):
+        runs, artifacts = self.make_api()
+        receipt = self.check(runs, artifacts)
+        self.assertEqual(receipt["status"],
+                         "GITHUB_METADATA_MATCH_HOLD_PAYLOAD_NOT_VERIFIED")
+        self.assertEqual(len(receipt["github_metadata_checked"]), 4)
+        self.assertIs(receipt["artifact_zip_bytes_verified"], False)
+        self.assertIs(receipt["store_submission_allowed"], False)
+        self.assertEqual(receipt["product_e2e"], "HOLD")
+
+    def test_live_api_drift_rejected(self):
+        repo = "shihuiarenjinba-png/Repository-Provisioner-3D"
+        item = self.h["evidence"]["provisioner_pre"]
+        key = (repo, item["run_id"])
+        cases = [
+            ("failed run", lambda r, a: r[key].update(conclusion="failure")),
+            ("wrong run head", lambda r, a: r[key].update(head_sha="f" * 40)),
+            ("unsafe branch", lambda r, a: r[key].update(head_branch="main")),
+            ("unexpected event", lambda r, a: r[key].update(event="pull_request")),
+            ("missing artifact", lambda r, a: a[key].clear()),
+            ("wrong archive hash", lambda r, a: a[key][0].update(digest="sha256:" + "f" * 64)),
+            ("wrong archive size", lambda r, a: a[key][0].update(size_in_bytes=1)),
+            ("expired artifact", lambda r, a: a[key][0].update(expired=True)),
+            ("wrong artifact name", lambda r, a: a[key][0].update(name="other")),
+            ("wrong artifact run", lambda r, a: a[key][0]["workflow_run"].update(id=1)),
+            ("wrong artifact head", lambda r, a: a[key][0]["workflow_run"].update(head_sha="f" * 40)),
+            ("fork provenance", lambda r, a: a[key][0]["workflow_run"].update(head_repository_id=12346)),
+            ("expiry drift", lambda r, a: a[key][0].update(expires_at="2026-11-04T00:00:00Z")),
+        ]
+        for label, mutate in cases:
+            with self.subTest(label=label):
+                runs, artifacts = self.make_api()
+                mutate(runs, artifacts)
+                with self.assertRaises(RevisionHandoffError):
+                    self.check(runs, artifacts)
+
+    def test_api_failure_fails_closed(self):
+        runs, artifacts = self.make_api()
+        with self.assertRaisesRegex(RevisionHandoffError, "GitHub API unavailable"):
+            from prism_revision_handoff_contract import verify_github_metadata
+            verify_github_metadata(
+                self.h, now=self.observed + timedelta(seconds=1),
+                fetch_run=lambda repo, run_id: (_ for _ in ()).throw(OSError("offline")),
+                fetch_artifacts=lambda repo, run_id: artifacts[(repo, run_id)],
+            )
+
+
+
 if __name__ == "__main__":
     unittest.main()
