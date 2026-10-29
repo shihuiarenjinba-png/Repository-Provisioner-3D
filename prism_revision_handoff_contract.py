@@ -152,6 +152,12 @@ def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
         "unsigned_makeappx": "shihuiarenjinba-png/Repository-Provisioner-3D",
         "independent_pck_diagnostic": "shihuiarenjinba-png/Repository-Provisioner-3D",
     }
+    expected_repository_ids = {
+        "factory": 1434223918,
+        "provisioner_pre": 1434261585,
+        "unsigned_makeappx": 1434261585,
+        "independent_pck_diagnostic": 1434261585,
+    }
     expected_branches = {
         "factory": "codex/prism-route-trap-tension-20261029",
         "provisioner_pre": "codex/e2e-belt-connection-20261027",
@@ -162,6 +168,7 @@ def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
     for kind, repo in expected_repositories.items():
         item = h["evidence"][kind]
         run_id = item["run_id"]
+        repository_id = expected_repository_ids[kind]
         try:
             run = fetch_run(repo, run_id)
             artifacts = fetch_artifacts(repo, run_id)
@@ -174,7 +181,13 @@ def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
                 or run.get("conclusion") != "success"
                 or run.get("head_sha") != item["run_head_sha"]
                 or run.get("head_branch") != expected_branches[kind]
-                or run.get("event") != "push"):
+                or run.get("event") != "push"
+                or not isinstance(run.get("repository"), dict)
+                or type(run["repository"].get("id")) is not int
+                or run["repository"]["id"] != repository_id
+                or not isinstance(run.get("head_repository"), dict)
+                or type(run["head_repository"].get("id")) is not int
+                or run["head_repository"]["id"] != repository_id):
             raise RevisionHandoffError(f"GitHub workflow mismatch: {kind}")
         if not isinstance(artifacts, list):
             raise RevisionHandoffError(f"invalid GitHub artifact list: {kind}")
@@ -200,8 +213,9 @@ def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
                 or provenance.get("head_sha") != item["run_head_sha"]
                 or provenance.get("head_branch") != expected_branches[kind]
                 or type(provenance.get("repository_id")) is not int
-                or provenance["repository_id"] <= 0
-                or provenance.get("head_repository_id") != provenance["repository_id"]):
+                or provenance["repository_id"] != repository_id
+                or type(provenance.get("head_repository_id")) is not int
+                or provenance["head_repository_id"] != repository_id):
             raise RevisionHandoffError(f"GitHub artifact provenance mismatch: {kind}")
         checked.append(kind)
     return {
