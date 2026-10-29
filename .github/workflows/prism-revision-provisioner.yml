@@ -82,7 +82,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # A safe PRE_IDENTITY HOLD intentionally exits 2; inspect the JSON
+          # rather than mistaking that documented gate for an infrastructure failure.
+          set +e
           python provisioner.py --config revision-config.json --input revision-job.json --output revision-result.json --factory-run-id 40858039242 --factory-artifact-id 12889832685
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then
+            echo "HOLD: expected PRE_IDENTITY exit 2, got $code"
+            exit 1
+          fi
           python - <<'PY'
           import json
           from pathlib import Path
