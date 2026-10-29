@@ -146,12 +146,15 @@ jobs:
           gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$qa_artifact_id" > /tmp/prism-api/qa_artifact.json
           gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pck_artifact_id" > /tmp/prism-api/pck_artifact.json
           gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/compare/$source_sha...$observed_head" > /tmp/prism-api/factory_compare.json
+          # Compare is historical; also verify the current remote Factory HEAD.
+          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/branches/codex%2F3d-canary-prism-route-20261028" > /tmp/prism-api/factory_branch.json
           python - <<'PY'
           import json
           from pathlib import Path
           root=Path('/tmp/prism-api')
           fields=('factory_run','factory_artifact','pre_run','pre_artifact',
-                  'qa_run','qa_artifact','pck_artifact','factory_compare')
+                  'qa_run','qa_artifact','pck_artifact','factory_compare',
+                  'factory_branch')
           Path('canary-remote-input.json').write_text(
               json.dumps({k:json.loads((root/(k+'.json')).read_text()) for k in fields}))
           PY
@@ -161,6 +164,7 @@ jobs:
           from pathlib import Path
           r=json.loads(Path('canary-remote-evidence.json').read_text())
           assert r['metadata_comparison']=='PASS_CALLER_SUPPLIED_API_RESPONSES'
+          assert r['factory_branch_head_matched_snapshot'] is True
           assert r['product_e2e']=='HOLD'
           assert r['signed_msix_verified'] is False
           assert r['windows_all_auto_intake_verified'] is False
