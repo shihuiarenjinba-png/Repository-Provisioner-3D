@@ -80,6 +80,7 @@ def prism_check_only(handoff: dict[str, Any],
     for role, field in (
         ("factory_export", "factory_export_evidence"),
         ("provisioner_pre_identity", "provisioner_pre_identity_evidence"),
+        ("independent_pck_diagnostic", "independent_pck_diagnostic_evidence"),
         ("unsigned_makeappx_qa", "real_makeappx_qa_evidence"),
     ):
         expires_at = handoff[field].get("artifact_expires_at")
