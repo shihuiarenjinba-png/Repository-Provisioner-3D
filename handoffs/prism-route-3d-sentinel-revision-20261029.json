@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "handoff_type": "GAME_3D_PRISM_SENTINEL_REVISION",
+  "lane": "GAME_3D",
+  "product": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "source_repository": "shihuiarenjinba-png/3d-game-factory",
+  "source_branch": "codex/prism-route-trap-tension-20261029",
+  "source_sha": "369245118248373a06850e40dbe80da91f9b8892",
+  "request_id": "3d-prism-route-3d-369245118248",
+  "immutable_original_provenance": {
+    "source_sha": "15fdcb52e46e35e6de8e87c55af99719c21e09b9",
+    "identity_reference_commit": "11417b75636ee18816028ffd5221884c4c9a9836",
+    "identity_reference_is_new_revision_approval": false
+  },
+  "packaging_strategy": "GODOT_WINDOWS_EXE_PCK_TO_MAKEAPPX_STANDARD_MSIX",
+  "registration_type": "MSIX_OR_PWA_GAME",
+  "partner_center_selection": "MSIX or PWA game",
+  "partner_center_product_status": "UNRECONCILED_MANUAL_OBSERVATIONS",
+  "allow_local_product_creation": false,
+  "existing_store_id_reference_unverified": "9N95J2T57B41",
+  "identity_status": "OFFICIAL_CAPTURE_AND_NEW_REVISION_CAS_NOT_PROVEN",
+  "identity_return_target": "products/prism-route-3d/store/approved-identity.json",
+  "identity_rebinding_status": "HOLD_PENDING_OFFICIAL_CAS_AND_NEW_SOURCE_BINDING",
+  "user_id_request": {
+    "status": "REVERIFY_EXISTING_PRODUCT_IDENTITY",
+    "required_fields": [
+      "store_id",
+      "reserved_display_name",
+      "package_identity_name",
+      "publisher",
+      "publisher_display_name",
+      "pfn",
+      "package_sid"
+    ],
+    "xbox_fields_required": false
+  },
+  "evidence": {
+    "factory": {
+      "run_id": 40881578087,
+      "run_head_sha": "369245118248373a06850e40dbe80da91f9b8892",
+      "artifact_id": 12900891611,
+      "artifact_name": "godot-3d-factory-export-evidence",
+      "archive_digest": "sha256:154c95bfebe6e2b202a64bcd062ae71ff632d44db306d783ba2b1ce74ab5ce0c",
+      "archive_bytes": 30879600,
+      "expires_at": "2026-11-05T13:24:53Z"
+    },
+    "provisioner_pre": {
+      "run_id": 40882034737,
+      "run_head_sha": "ac1100498511659982ba60fb82e4e3d4cdf6d112",
+      "artifact_id": 12901365872,
+      "artifact_name": "prism-route-3d-sentinel-revision-provisioner-pre",
+      "archive_digest": "sha256:ba6017feee7c34762e998d36c405823df2724478daaaafa6f13b9d65f3357159",
+      "archive_bytes": 2489,
+      "expires_at": "2026-11-05T13:27:50Z"
+    },
+    "unsigned_makeappx": {
+      "run_id": 40882034500,
+      "run_head_sha": "ac1100498511659982ba60fb82e4e3d4cdf6d112",
+      "artifact_id": 12900910971,
+      "artifact_name": "prism-route-3d-sentinel-revision-makeappx-unsigned-qa",
+      "archive_digest": "sha256:20a2cc46654d390540d988fe683cdffe2bd28bb846354754bfe79b71b870d905",
+      "archive_bytes": 31030561,
+      "expires_at": "2026-11-03T13:27:45Z",
+      "signed": false,
+      "store_ready": false
+    },
+    "independent_pck_diagnostic": {
+      "run_id": 40882035109,
+      "run_head_sha": "ac1100498511659982ba60fb82e4e3d4cdf6d112",
+      "artifact_id": 12900922091,
+      "artifact_name": "prism-route-3d-independent-pck-diagnostic",
+      "archive_digest": "sha256:457e43705cfd4c62062da7493dab9537ff8b6ef1a22108d1df234e188f26960e",
+      "archive_bytes": 13284,
+      "expires_at": "2026-10-30T13:27:57Z",
+      "diagnostic_only": true,
+      "not_store_payload": true
+    }
+  },
+  "evidence_observed_at": "2026-10-29T14:28:00Z",
+  "evidence_observation_scope": "GitHub Actions metadata only; artifact ZIP hashes are archive digests, not EXE/PCK/MSIX payload hashes; recheck expiration at use time",
+  "gates": {
+    "factory_export": "PASS_PREVIOUS_RUN",
+    "godot_windows_export": "PASS_PREVIOUS_RUN",
+    "exe_pck_provisioner": "PASS_PREVIOUS_RUN",
+    "pre_identity": "PASS_PREVIOUS_RUN",
+    "registration_type": "MSIX_OR_PWA_GAME",
+    "identity_cas": "HOLD",
+    "approved_package_version": "HOLD",
+    "signed_post_identity_msix": "HOLD",
+    "windows_all_auto_intake": "HOLD",
+    "local_gpu_install_gui": "DEFERRED_LOCAL_GATE",
+    "product_e2e": "HOLD"
+  },
+  "controls": {
+    "second_3d_product_allowed": false,
+    "store_submission_allowed": false,
+    "main_release_write_allowed": false,
+    "force_push_allowed": false,
+    "auto_merge_allowed": false
+  },
+  "handoff_owner": "36-minute Windows/local lane",
+  "next_action": "Reconcile official Partner Center product existence and identity with authenticated CAS; approve new source/version binding before post-Identity MSIX. Never create duplicate product."
+}
