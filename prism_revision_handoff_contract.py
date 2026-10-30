@@ -81,6 +81,9 @@ def validate_revision_handoff(h, *, now=None, require_unexpired=True):
     evidence = h.get("evidence")
     if not isinstance(evidence, dict) or set(evidence) != set(ARTIFACTS):
         raise RevisionHandoffError("missing evidence artifacts")
+    # This old-source PCK diagnostic is archival provenance, not the Sentinel
+    # payload. Its expiry must not disable live Factory/PRE/MSIX verification.
+    historical_diagnostic = "independent_pck_diagnostic"
     ids = set()
     for key, expected_name in ARTIFACTS.items():
         item = evidence[key]
@@ -98,7 +101,8 @@ def validate_revision_handoff(h, *, now=None, require_unexpired=True):
         if not isinstance(digest, str) or not DIGEST.fullmatch(digest):
             raise RevisionHandoffError(f"invalid archive digest: {key}")
         expires = timestamp(item.get("expires_at"), f"{key}.expires_at")
-        if expires <= observed or (require_unexpired and expires <= now):
+        if expires <= observed or (require_unexpired and expires <= now
+                                   and key != historical_diagnostic):
             raise RevisionHandoffError(f"expired artifact: {key}")
     if evidence["factory"]["run_head_sha"] != source:
         raise RevisionHandoffError("Factory source mismatch")
@@ -168,7 +172,11 @@ def validate_revision_handoff(h, *, now=None, require_unexpired=True):
             "identity_cas": "HOLD", "signed_msix": "HOLD",
             "windows_all_auto_intake": "HOLD", "product_e2e": "HOLD",
             "github_artifact_authentication": "REQUIRED_SEPARATELY",
-            "pinned_verifier_claim": "CONSISTENT_NOT_INDEPENDENTLY_AUTHENTICATED"}
+            "pinned_verifier_claim": "CONSISTENT_NOT_INDEPENDENTLY_AUTHENTICATED",
+            "historical_pck_diagnostic_expired": (
+                timestamp(evidence[historical_diagnostic]["expires_at"],
+                          "historical_pck_diagnostic.expires_at") <= now),
+            "historical_pck_diagnostic_is_new_source_payload": False}
 
 
 def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
@@ -211,7 +219,15 @@ def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
         "independent_pck_diagnostic": (".github/workflows/canary-live-provenance.yml", 399059609),
     }
     checked = []
+    skipped_historical = []
     for kind, repo in expected_repositories.items():
+        if (kind == "independent_pck_diagnostic"
+                and timestamp(h["evidence"][kind]["expires_at"],
+                              "historical_diagnostic.expires_at") <= now):
+            # Expired legacy-source diagnostic: never fetch/claim it as live
+            # evidence. All three Sentinel-relevant artifacts remain required.
+            skipped_historical.append(kind)
+            continue
         item = h["evidence"][kind]
         run_id = item["run_id"]
         repository_id = expected_repository_ids[kind]
@@ -271,6 +287,7 @@ def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
         **receipt,
         "status": "GITHUB_METADATA_MATCH_HOLD_PAYLOAD_NOT_VERIFIED",
         "github_metadata_checked": checked,
+        "expired_historical_diagnostics_skipped": skipped_historical,
         "artifact_zip_bytes_verified": False,
         "inner_exe_pck_msix_verified": False,
         "official_identity_cas_verified": False,
