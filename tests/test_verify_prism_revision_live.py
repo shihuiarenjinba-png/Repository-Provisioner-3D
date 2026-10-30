@@ -44,9 +44,69 @@ class LivePrismHandoffCliTests(unittest.TestCase):
             path.write_text("{}", encoding="utf-8")
             stream = io.StringIO()
             with patch.object(cli, "verify_github_metadata", return_value=receipt,
-                              side_effect=error), redirect_stdout(stream):
+                              side_effect=error), patch.object(
+                                  cli, "_authenticate_pinned_verifier",
+                                  return_value={"pinned_verifier_job_authenticated": True}
+                              ), redirect_stdout(stream):
                 code = cli.main(["--handoff", str(path)])
             return code, json.loads(stream.getvalue())
+
+    def test_pinned_verifier_run_job_step_authenticated(self):
+        handoff = json.loads((Path(__file__).resolve().parents[1] /
+            "handoffs/prism-route-3d-sentinel-revision-20261029.json"
+        ).read_text(encoding="utf-8"))
+        claim = handoff["pinned_snapshot_verification"]
+        run = {
+            "id": claim["verified_workflow_run_id"], "status": "completed",
+            "conclusion": "success", "head_sha": claim["verified_workflow_head_sha"],
+            "head_branch": "codex/e2e-belt-connection-20261027", "event": "push",
+            "path": ".github/workflows/prism-revision-provisioner.yml",
+            "workflow_id": 400477810, "repository": {"id": 1434261585},
+            "head_repository": {"id": 1434261585},
+        }
+        job = {
+            "id": claim["verified_job_id"], "run_id": claim["verified_workflow_run_id"],
+            "name": "prism-revision-pre", "status": "completed",
+            "conclusion": "success", "steps": [
+                {"name": claim["verified_step"], "status": "completed",
+                 "conclusion": "success"}
+            ],
+        }
+        with patch.object(cli, "_github_run", return_value=run), patch.object(
+                cli, "_github_json", return_value=job) as api:
+            result = cli._authenticate_pinned_verifier(handoff)
+        self.assertTrue(result["pinned_verifier_job_authenticated"])
+        self.assertTrue(result["pinned_verifier_step_authenticated"])
+        self.assertFalse(result["new_output_artifact_bytes_reverified"])
+        api.assert_called_once_with(
+            "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/jobs/"
+            + str(claim["verified_job_id"]))
+
+        from copy import deepcopy
+        mutations = (
+            ("wrong run HEAD", "run", "head_sha", "f" * 40),
+            ("wrong workflow", "run", "workflow_id", 1),
+            ("wrong run repository", "run", "repository", {"id": 1}),
+            ("wrong branch", "run", "head_branch", "main"),
+            ("wrong run event", "run", "event", "workflow_dispatch"),
+            ("wrong job", "job", "run_id", 1),
+            ("failed job", "job", "conclusion", "failure"),
+            ("missing steps", "job", "steps", []),
+            ("failed verifier step", "job", "steps", [
+                {"name": claim["verified_step"], "status": "completed",
+                 "conclusion": "failure"}]),
+            ("duplicate verifier step", "job", "steps", [
+                {"name": claim["verified_step"], "status": "completed",
+                 "conclusion": "success"}] * 2),
+        )
+        for label, which, key, value in mutations:
+            with self.subTest(label=label):
+                bad_run, bad_job = deepcopy(run), deepcopy(job)
+                (bad_run if which == "run" else bad_job)[key] = value
+                with patch.object(cli, "_github_run", return_value=bad_run), patch.object(
+                        cli, "_github_json", return_value=bad_job):
+                    with self.assertRaises(RevisionHandoffError):
+                        cli._authenticate_pinned_verifier(handoff)
 
     def test_verified_metadata_remains_hold(self):
         receipt = {"status": "GITHUB_METADATA_MATCH_HOLD_PAYLOAD_NOT_VERIFIED",
