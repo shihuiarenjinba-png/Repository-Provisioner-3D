@@ -56,7 +56,15 @@ class PrismRevisionByteTests(unittest.TestCase):
         })
         msix = pack({
             "Game/game.exe": exe, "Game/game.pck": pck,
-            "AppxManifest.xml": b"<Package/>",
+            "AppxManifest.xml": b"""<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+ xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+ <Identity Name="Example.ThreeD.Fixture" Publisher="CN=Offline QA Fixture"
+  Version="1.0.0.0" ProcessorArchitecture="x64"/>
+ <Applications><Application Id="Game" Executable="Game\\game.exe"
+  EntryPoint="Windows.FullTrustApplication"/></Applications>
+ <Capabilities><rescap:Capability Name="runFullTrust"/></Capabilities>
+</Package>""",
         })
         report = {
             "source_sha": h["source_sha"],
@@ -93,6 +101,8 @@ class PrismRevisionByteTests(unittest.TestCase):
         result = self.verify(h, blobs)
         self.assertTrue(result["artifact_zip_bytes_verified"])
         self.assertTrue(result["inner_exe_pck_msix_verified"])
+        self.assertTrue(result["unsigned_qa_fixture_identity_detected"])
+        self.assertFalse(result["product_identity_verified"])
         self.assertEqual(result["product_e2e"], "HOLD")
         self.assertFalse(result["store_submission_allowed"])
         self.assertFalse(result["signature_verified"])
@@ -123,6 +133,28 @@ class PrismRevisionByteTests(unittest.TestCase):
         h["evidence"]["unsigned_makeappx"]["archive_digest"] = (
             "sha256:" + hashlib.sha256(blobs[key]).hexdigest())
         with self.assertRaisesRegex(RevisionHandoffError, "length mismatch"):
+            self.verify(h, blobs)
+
+    def test_changed_unsigned_manifest_identity_rejected_with_consistent_hashes(self):
+        h, blobs = self.fixture()
+        key = (PROVISIONER_REPO, h["evidence"]["unsigned_makeappx"]["artifact_id"])
+        with zipfile.ZipFile(BytesIO(blobs[key])) as archive:
+            entries = {n: archive.read(n) for n in archive.namelist()}
+        msix_name = "prism-route-3d-sentinel-qa-unsigned.msix"
+        with zipfile.ZipFile(BytesIO(entries[msix_name])) as archive:
+            nested = {n: archive.read(n) for n in archive.namelist()}
+        nested["AppxManifest.xml"] = nested["AppxManifest.xml"].replace(
+            b"Example.ThreeD.Fixture", b"Prism.Route.3D")
+        entries[msix_name] = pack(nested)
+        report = json.loads(entries["makeappx-evidence.json"])
+        report["msix_bytes"] = len(entries[msix_name])
+        report["msix_sha256"] = hashlib.sha256(entries[msix_name]).hexdigest()
+        entries["makeappx-evidence.json"] = json.dumps(report).encode()
+        blobs[key] = pack(entries)
+        h["evidence"]["unsigned_makeappx"]["archive_bytes"] = len(blobs[key])
+        h["evidence"]["unsigned_makeappx"]["archive_digest"] = (
+            "sha256:" + hashlib.sha256(blobs[key]).hexdigest())
+        with self.assertRaisesRegex(RevisionHandoffError, "fixture manifest mismatch"):
             self.verify(h, blobs)
 
     def test_zip_path_traversal_rejected(self):
