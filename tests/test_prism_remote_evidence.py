@@ -78,6 +78,43 @@ class RemoteEvidenceTests(unittest.TestCase):
                       "signed_msix_verified", "windows_all_auto_intake_verified"):
             self.assertIs(receipt[field], False)
 
+    def test_expired_old_source_pck_is_skipped_but_e2e_remains_hold(self):
+        # Expiry is not an authorization to use this diagnostic as payload.
+        data = self.remote()
+        data["pck_artifact"] = None  # gh API no longer returns the ZIP
+        expires = datetime.strptime(
+            self.handoff["independent_pck_diagnostic_evidence"]["artifact_expires_at"],
+            "%Y-%m-%dT%H:%M:%SZ",
+        ).replace(tzinfo=timezone.utc)
+        receipt = verify_remote_snapshot(self.handoff, data, now_utc=expires)
+        self.assertIs(receipt["historical_pck_diagnostic_expired"], True)
+        self.assertEqual(receipt["historical_pck_diagnostic_metadata"],
+                         "SKIPPED_EXPIRED_OLD_SOURCE")
+        self.assertIs(receipt["historical_pck_diagnostic_is_store_payload"], False)
+        self.assertEqual(receipt["metadata_comparison"],
+                         "PASS_CALLER_SUPPLIED_API_RESPONSES")
+        self.assertEqual(receipt["product_e2e"], "HOLD")
+        self.assertIs(receipt["signed_msix_verified"], False)
+        self.assertIs(receipt["windows_all_auto_intake_verified"], False)
+
+    def test_missing_live_pck_metadata_still_fails_closed(self):
+        data = self.remote()
+        data["pck_artifact"] = None
+        with self.assertRaisesRegex(HandoffContractError, "missing unexpired PCK"):
+            verify_remote_snapshot(self.handoff, data, now_utc=NOW)
+
+    def test_expired_pck_metadata_cannot_claim_live_verification(self):
+        data = self.remote()
+        # Even if a stale response is supplied, the expired artifact is
+        # ignored rather than falsely promoted to a current payload.
+        expires = datetime.strptime(
+            self.handoff["independent_pck_diagnostic_evidence"]["artifact_expires_at"],
+            "%Y-%m-%dT%H:%M:%SZ",
+        ).replace(tzinfo=timezone.utc)
+        receipt = verify_remote_snapshot(self.handoff, data, now_utc=expires)
+        self.assertEqual(receipt["historical_pck_diagnostic_metadata"],
+                         "SKIPPED_EXPIRED_OLD_SOURCE")
+
     def test_tampered_remote_fields_fail_closed(self):
         cases = (
             ("factory_run", "head_sha", "f" * 40),
