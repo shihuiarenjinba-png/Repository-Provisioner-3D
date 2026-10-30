@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "verification_kind": "INDEPENDENT_DOWNLOADED_BYTES",
+  "verified_at_jst": "2026-10-31T08:30:00+09:00",
+  "product": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "source_branch": "codex/prism-route-trap-tension-20261029",
+  "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "request_id": "3d-prism-route-3d-e432d94ed0db",
+  "provisioner_branch": "codex/e2e-belt-connection-20261027",
+  "provisioner_head_at_download": "7700acbec427623d8e0318d2f9751b894b8f5bb6",
+  "registration_type": "MSIX_OR_PWA_GAME",
+  "partner_center_selection": "MSIX or PWA game",
+  "artifacts": {
+    "factory": {
+      "repo": "shihuiarenjinba-png/3d-game-factory",
+      "run_id": 40901053437,
+      "artifact_id": 12909162367,
+      "downloaded_zip_size_bytes": 30880705,
+      "downloaded_zip_sha256": "dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c",
+      "metadata_digest_match": true,
+      "exe": {
+        "path": "candidate.exe",
+        "size_bytes": 84214784,
+        "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13"
+      },
+      "pck": {
+        "path": "candidate.pck",
+        "size_bytes": 71568,
+        "sha256": "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03"
+      },
+      "export_evidence_sha256": "c55db8c276919cc9792c02f2423ecc6e7b249ad83772e9e256de1fd412208103",
+      "expires_at_utc": "2026-11-05T15:24:12Z"
+    },
+    "provisioner_pre": {
+      "repo": "shihuiarenjinba-png/Repository-Provisioner-3D",
+      "run_id": 41090421171,
+      "artifact_id": 12994415760,
+      "downloaded_zip_size_bytes": 2483,
+      "downloaded_zip_sha256": "f8f33b25bd0ffdc151ecd6d6ade44573e79c95620fa2010da340862d31da6b7f",
+      "metadata_digest_match": true,
+      "receipt_source_binding_match": true,
+      "official_identity_status": "UNVERIFIED",
+      "github_return_status": "NOT_APPLIED",
+      "windows_all_auto_record": null,
+      "local_reexport_pck_sha256": "85584c789a6bf364156538a933d11422698eeb09c993c811d0c92d017584b97d",
+      "local_reexport_pck_matches_factory": false,
+      "expires_at_utc": "2026-11-06T16:30:46Z"
+    },
+    "unsigned_msix": {
+      "repo": "shihuiarenjinba-png/Repository-Provisioner-3D",
+      "run_id": 41090420974,
+      "artifact_id": 12994295794,
+      "downloaded_zip_size_bytes": 31031429,
+      "downloaded_zip_sha256": "d3f9a60d5834d49ef26c6cb4cf54e9ad108a917d956909d6bf5ef4a50722ea01",
+      "metadata_digest_match": true,
+      "msix_path": "prism-route-3d-sentinel-qa-unsigned.msix",
+      "msix_size_bytes": 31084849,
+      "msix_sha256": "416256724d36850b57dc99d588ee8d45855206a9c66207ef213dbfcc8f903593",
+      "embedded_exe_matches_factory": true,
+      "embedded_pck_matches_factory": true,
+      "appx_manifest_identity_name": "Example.ThreeD.Fixture",
+      "appx_manifest_publisher": "CN=Offline QA Fixture",
+      "appx_manifest_version": "1.0.0.0",
+      "appx_signature_p7x_present": false,
+      "expires_at_utc": "2026-11-04T16:30:33Z"
+    }
+  },
+  "checks": {
+    "zip_digest_metadata_match": true,
+    "request_source_factory_head_correlation": true,
+    "msix_embedded_exe_pck_byte_match": true,
+    "pre_identity_guard_held": true,
+    "official_store_identity_bound_to_new_revision": false,
+    "approved_package_version": false,
+    "signed_store_msix": false,
+    "windows_all_auto_intake_verified": false,
+    "local_gui_gpu_install_verified": false
+  },
+  "observations": [
+    "Independent local download and SHA-256 verification performed for all three CURRENT artifact ZIPs, not just previously pinned older artifacts.",
+    "Unsigned MSIX is a QA fixture with Example.ThreeD.Fixture identity and no AppxSignature.p7x; it must never be treated as Store-ready.",
+    "Provisioner PRE receipt reports a local Godot re-export PCK hash that differs from the authenticated Factory PCK. Factory artifact remains authoritative; reproducible export is not established and merits investigation before asserting reproducibility.",
+    "Partner Center identity file for historical source 15fdcb52... is not authorization to bind new Sentinel source without official CAS verification."
+  ],
+  "state": {
+    "factory_export": "PASS_BYTES",
+    "provisioner_pre": "PASS_PRE_IDENTITY_BYTES",
+    "unsigned_msix_qa": "PASS_BYTES_NOT_STORE_READY",
+    "identity_cas": "HOLD",
+    "package_version": "HOLD",
+    "windows_all_auto": "HOLD",
+    "local_gate": "DEFERRED_LOCAL_GATE",
+    "e2e": "HOLD",
+    "second_3d_product_allowed": false
+  }
+}
