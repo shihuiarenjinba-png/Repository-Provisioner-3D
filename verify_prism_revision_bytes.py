@@ -91,6 +91,10 @@ def _check_member(archive, name, expected_sha, expected_bytes, magic):
 
 def _verify_unsigned_qa_fixture_manifest(archive):
     """Confirm the unsigned MSIX is a QA fixture, never the Prism Store identity."""
+    # MakeAppx QA is deliberately unsigned. A recomputed report/ZIP digest
+    # must never let a signed (or signature-bearing) package pose as this fixture.
+    if "AppxSignature.p7x" in archive.namelist():
+        raise RevisionHandoffError("signed package cannot pass unsigned QA")
     name = "AppxManifest.xml"
     if name not in archive.namelist() or archive.getinfo(name).file_size > 65536:
         raise RevisionHandoffError("missing or oversized unsigned QA manifest")
@@ -107,6 +111,7 @@ def _verify_unsigned_qa_fixture_manifest(archive):
     capability = root.find(f"{{{ns}}}Capabilities/{{{rescap}}}Capability")
     if (identity is None or identity.get("Name") != "Example.ThreeD.Fixture"
             or identity.get("Publisher") != "CN=Offline QA Fixture"
+            or identity.get("Version") != "1.0.0.0"
             or identity.get("ProcessorArchitecture") != "x64"
             or application is None
             or application.get("Executable") != r"Game\game.exe"
