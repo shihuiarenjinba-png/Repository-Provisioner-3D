@@ -95,7 +95,9 @@ class PrismSentinelRevisionHandoffTests(unittest.TestCase):
         pck = evidence["independent_pck_diagnostic"]
         self.assertNotEqual(pck["artifact_id"], pre["artifact_id"])
         self.assertNotEqual(pck["run_id"], pre["run_id"])
-        self.assertIn("original-source only", h["evidence_observation_scope"])
+        # Diagnostic provenance is expressed in typed fields, not prose.
+        self.assertTrue(pck["diagnostic_only"])
+        self.assertTrue(pck["not_store_payload"])
         observed = datetime.fromisoformat(h["evidence_observed_at"].replace("Z", "+00:00"))
         self.assertIsNotNone(observed.tzinfo)
         for name, item in evidence.items():
