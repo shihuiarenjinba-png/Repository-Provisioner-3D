@@ -157,6 +157,43 @@ class PrismRevisionByteTests(unittest.TestCase):
         with self.assertRaisesRegex(RevisionHandoffError, "fixture manifest mismatch"):
             self.verify(h, blobs)
 
+    def _rewrite_qa_msix_with_consistent_outer_hashes(self, h, blobs, mutate):
+        """Attack the nested MSIX while keeping report and archive digests valid."""
+        key = (PROVISIONER_REPO, h["evidence"]["unsigned_makeappx"]["artifact_id"])
+        with zipfile.ZipFile(BytesIO(blobs[key])) as outer:
+            entries = {name: outer.read(name) for name in outer.namelist()}
+        name = "prism-route-3d-sentinel-qa-unsigned.msix"
+        with zipfile.ZipFile(BytesIO(entries[name])) as inner:
+            nested = {entry: inner.read(entry) for entry in inner.namelist()}
+        mutate(nested)
+        entries[name] = pack(nested)
+        report = json.loads(entries["makeappx-evidence.json"])
+        report["msix_bytes"] = len(entries[name])
+        report["msix_sha256"] = hashlib.sha256(entries[name]).hexdigest()
+        entries["makeappx-evidence.json"] = json.dumps(report).encode()
+        blobs[key] = pack(entries)
+        h["evidence"]["unsigned_makeappx"]["archive_bytes"] = len(blobs[key])
+        h["evidence"]["unsigned_makeappx"]["archive_digest"] = (
+            "sha256:" + hashlib.sha256(blobs[key]).hexdigest())
+
+    def test_signature_bearing_qa_msix_rejected_despite_consistent_hashes(self):
+        h, blobs = self.fixture()
+        self._rewrite_qa_msix_with_consistent_outer_hashes(
+            h, blobs, lambda entries: entries.update({"AppxSignature.p7x": b"forged"}))
+        with self.assertRaisesRegex(RevisionHandoffError, "signed package cannot pass unsigned QA"):
+            self.verify(h, blobs)
+
+    def test_fixture_version_drift_rejected_despite_consistent_hashes(self):
+        h, blobs = self.fixture()
+        def alter(entries):
+            original = entries["AppxManifest.xml"]
+            self.assertIn(b'Version="1.0.0.0"', original)
+            entries["AppxManifest.xml"] = original.replace(
+                b'Version="1.0.0.0"', b'Version="9.9.9.0"')
+        self._rewrite_qa_msix_with_consistent_outer_hashes(h, blobs, alter)
+        with self.assertRaisesRegex(RevisionHandoffError, "fixture manifest mismatch"):
+            self.verify(h, blobs)
+
     def test_zip_path_traversal_rejected(self):
         h, blobs = self.fixture()
         key = (FACTORY_REPO, h["evidence"]["factory"]["artifact_id"])
