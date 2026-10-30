@@ -21,6 +21,8 @@ class PrismRevisionHandoffRuntimeTests(unittest.TestCase):
         self.assertEqual(receipt["status"], "CONTRACT_VALID_HOLD_NOT_AUTHENTICATED")
         self.assertEqual(receipt["product_e2e"], "HOLD")
         self.assertEqual(receipt["github_artifact_authentication"], "REQUIRED_SEPARATELY")
+        self.assertEqual(receipt["pinned_verifier_claim"],
+                         "CONSISTENT_NOT_INDEPENDENTLY_AUTHENTICATED")
 
     def test_consumption_rejects_expired_diagnostic(self):
         expiry = datetime.fromisoformat(
@@ -56,6 +58,17 @@ class PrismRevisionHandoffRuntimeTests(unittest.TestCase):
             ("gates.exe_pck_provisioner", "PASS"),
             ("gates.pre_identity", "PASS"),
             ("gates.registration_type", "GDK_GAME"),
+            ("pinned_snapshot_verification.status", "STORE_READY"),
+            ("pinned_snapshot_verification.verified_workflow_run_id", True),
+            ("pinned_snapshot_verification.verified_job_id", 0),
+            ("pinned_snapshot_verification.verified_workflow_head_sha", "bad"),
+            ("pinned_snapshot_verification.verified_step", "unrelated job"),
+            ("pinned_snapshot_verification.verified_step_conclusion", "failure"),
+            ("pinned_snapshot_verification.verified_artifact_ids.factory", 999),
+            ("pinned_snapshot_verification.verified_artifact_ids.unsigned_makeappx", True),
+            ("pinned_snapshot_verification.new_output_artifact_bytes_reverified", True),
+            ("pinned_snapshot_verification.official_identity_cas_verified", True),
+            ("pinned_snapshot_verification.store_submission_allowed", True),
         )
         for path, value in cases:
             with self.subTest(path=path):
@@ -65,6 +78,21 @@ class PrismRevisionHandoffRuntimeTests(unittest.TestCase):
                 for key in parts[:-1]:
                     target = target[key]
                 target[parts[-1]] = value
+                with self.assertRaises(RevisionHandoffError):
+                    validate_revision_handoff(changed, now=self.observed + timedelta(seconds=1))
+
+    def test_pinned_verifier_receipt_missing_or_extra_artifact_rejected(self):
+        for mutation in ("missing", "extra", "missing_receipt"):
+            with self.subTest(mutation=mutation):
+                changed = copy.deepcopy(self.h)
+                if mutation == "missing_receipt":
+                    del changed["pinned_snapshot_verification"]
+                else:
+                    ids = changed["pinned_snapshot_verification"]["verified_artifact_ids"]
+                    if mutation == "missing":
+                        del ids["factory"]
+                    else:
+                        ids["unrelated"] = 123
                 with self.assertRaises(RevisionHandoffError):
                     validate_revision_handoff(changed, now=self.observed + timedelta(seconds=1))
 
