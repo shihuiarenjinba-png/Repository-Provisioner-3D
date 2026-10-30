@@ -598,6 +598,8 @@ class OfficialIdentityProvider:
         if self.evidence_path is None:
             raise HoldError("No authenticated Partner Center identity evidence was supplied")
         raw = load_json(self.evidence_path, 32_768)
+        if raw.get("status") == "IDENTITY_CAPTURED__UI_MATCHED_REFERENCE__GITHUB_BOUND":
+            return self._lookup_local_operator(raw, job)
         required = {"request_id", "product_type", "slug", "source_sha", "authenticated_account", "verified_at",
                     "official_evidence_url", "store_id", "name", "publisher", "version",
                     "package_family_name", "package_sid"}
@@ -626,6 +628,69 @@ class OfficialIdentityProvider:
         if not isinstance(sid, str) or not PACKAGE_SID.fullmatch(sid):
             raise HoldError("Invalid official Package SID")
         return raw
+
+    @staticmethod
+    def _lookup_local_operator(raw: dict[str, Any], job: Job) -> dict[str, Any]:
+        required = {
+            "schema_version", "status", "authenticated_partner_center_pass", "capture_source",
+            "job_origin", "central_repository", "central_branch", "central_head_sha",
+            "queue_job_digest", "request_id", "source_repository", "source_branch",
+            "source_sha", "source_snapshot_path", "source_snapshot_head", "slug",
+            "product_type", "registration_type", "partner_center_selection", "display_name",
+            "store_id", "reserved_display_name", "identity_name", "publisher",
+            "publisher_display_name", "package_family_name", "package_sid", "captured_at",
+            "creation_status", "overview_exact_match_count", "identity_details_observed",
+            "manual_reference_comparison", "identity_return_target", "package_version_gate",
+            "existing_scheduler_routing_pending", "cas_applied", "store_submitted",
+        }
+        if set(raw) != required:
+            raise HoldError("Local operator Identity receipt has missing or unknown fields")
+        exact = {
+            "request_id": job.request_id, "product_type": job.product_type, "slug": job.slug,
+            "source_repository": job.source_repository, "source_branch": job.source_branch,
+            "source_sha": job.source_sha, "source_snapshot_head": job.source_sha,
+            "display_name": job.display_name, "reserved_display_name": job.display_name,
+            "identity_return_target": f"products/{job.slug}/store/approved-identity.json",
+            "registration_type": "MSIX_OR_PWA_GAME",
+            "partner_center_selection": "MSIX or PWA game",
+            "job_origin": "GITHUB_PRE_IDENTITY_QUEUE",
+            "central_repository": "shihuiarenjinba-png/Windows-all-auto",
+            "central_branch": "codex/e2e-belt-connection-20261027",
+        }
+        if any(raw.get(key) != value for key, value in exact.items()):
+            raise ConflictError("Local operator Identity receipt belongs to another product/request/SHA")
+        if (raw.get("authenticated_partner_center_pass") is not True
+                or raw.get("capture_source") != "AUTHENTICATED_PARTNER_CENTER_UI"
+                or raw.get("job_origin") != "GITHUB_PRE_IDENTITY_QUEUE"
+                or raw.get("manual_reference_comparison") != "MATCH"
+                or raw.get("creation_status") not in {"CREATED", "REUSED_EXISTING"}
+                or raw.get("overview_exact_match_count") != 1
+                or raw.get("identity_details_observed") is not True
+                or raw.get("package_version_gate") != "HOLD"
+                or raw.get("cas_applied") is not False
+                or raw.get("store_submitted") is not False):
+            raise HoldError("Local operator Identity evidence is incomplete")
+        if (not re.fullmatch(r"[0-9a-f]{40}", str(raw.get("central_head_sha", "")))
+                or not re.fullmatch(r"[0-9a-f]{64}", str(raw.get("queue_job_digest", "")))):
+            raise HoldError("Local operator GitHub provenance is invalid")
+        store_id, name = raw["store_id"], raw["identity_name"]
+        publisher, pfn, sid = raw["publisher"], raw["package_family_name"], raw["package_sid"]
+        if (not STORE_ID.fullmatch(str(store_id)) or not IDENTITY_NAME.fullmatch(str(name))
+                or not isinstance(publisher, str) or not publisher.startswith("CN=")
+                or not isinstance(raw.get("publisher_display_name"), str)
+                or not raw["publisher_display_name"].strip()
+                or not PACKAGE_FAMILY_NAME.fullmatch(str(pfn)) or not PACKAGE_SID.fullmatch(str(sid))):
+            raise HoldError("Local operator Identity schema is invalid")
+        return {
+            **raw,
+            "name": name,
+            "version": None,
+            "authenticated_account": "LOCAL_WINDOWS_PARTNER_CENTER_OPERATOR",
+            "verified_at": raw["captured_at"],
+            "official_evidence_url": (
+                f"https://partner.microsoft.com/en-us/dashboard/products/{store_id}/identity"
+            ),
+        }
 
 
 def compare_package_identity(package: dict[str, Any], official: dict[str, Any],
@@ -729,8 +794,24 @@ class GitHubReturnClient:
         if not apply:
             return proposal
         ref = self.api(base + "git/ref/heads/" + job.source_branch)
-        if not isinstance(ref, dict) or ref.get("object", {}).get("sha") != job.source_sha:
-            raise ConflictError("Factory HEAD changed before identity return")
+        current_head = ref.get("object", {}).get("sha") if isinstance(ref, dict) else None
+        if current_head != job.source_sha:
+            # A successful CAS necessarily advances the Factory branch. A
+            # restart may therefore see the returned commit instead of the
+            # immutable source SHA. Reuse only an exact existing record and
+            # prove the branch did not move again during that read.
+            existing = self.api(
+                base + "contents/" + target_path + "?ref=" + quote(job.source_branch, safe=""),
+                allow_missing=True,
+            )
+            if existing is None or not self._existing_matches(existing, official, job, package):
+                raise ConflictError("Factory HEAD changed before identity return")
+            self._verify_product(base, job, config)
+            latest_ref = self.api(base + "git/ref/heads/" + job.source_branch)
+            if (not isinstance(latest_ref, dict)
+                    or latest_ref.get("object", {}).get("sha") != current_head):
+                raise ConflictError("Factory HEAD changed while verifying existing identity")
+            return {**proposal, "status": "EXISTING_VERIFIED", "commit_sha": current_head}
         self._verify_product(base, job, config)
         existing = self.api(base + "contents/" + target_path + "?ref=" + quote(job.source_branch, safe=""), allow_missing=True)
         if existing is not None:
@@ -749,7 +830,7 @@ class GitHubReturnClient:
                     "source_factory": job.source_factory, "source_repository": job.source_repository,
                     "source_branch": job.source_branch, "slug": job.slug,
                     "store_id": official["store_id"], "name": official["name"],
-                    "publisher": official["publisher"], "version": official["version"],
+                    "publisher": official["publisher"],
                     "package_family_name": official["package_family_name"],
                     "package_sid": official["package_sid"],
                     "verified_by": official["authenticated_account"],
@@ -761,7 +842,16 @@ class GitHubReturnClient:
                     "signature_status": package["signature_status"],
                     "local_package_sha256": package["sha256"],
                     "local_package_kind": package["kind"],
-                    "local_signature_status": package["signature_status"]}
+                    "local_signature_status": package["signature_status"],
+                    "reserved_display_name": official.get("reserved_display_name"),
+                    "publisher_display_name": official.get("publisher_display_name"),
+                    "package_version_gate": official.get("package_version_gate", "READY")}
+        if official.get("version") is not None:
+            approved["version"] = official["version"]
+        for key in ("job_origin", "central_repository", "central_branch", "central_head_sha",
+                    "queue_job_digest", "captured_at"):
+            if official.get(key) is not None:
+                approved[key] = official[key]
         content = json.dumps(approved, ensure_ascii=False, indent=2) + "\n"
         body = {"query": self.MUTATION, "variables": {"input": {
             "branch": {"repositoryNameWithOwner": config.source_repository, "branchName": job.source_branch},
@@ -814,7 +904,12 @@ class GitHubReturnClient:
         if not isinstance(item, dict) or item.get("encoding") != "base64":
             raise ConflictError("Factory product evidence is missing")
         try:
-            raw = base64.b64decode(item.get("content", ""), validate=True)
+            encoded = item.get("content", "")
+            if not isinstance(encoded, str):
+                raise ValueError("content is not text")
+            # GitHub Contents API wraps base64 at fixed-width lines. Remove
+            # whitespace only, then retain strict alphabet/padding validation.
+            raw = base64.b64decode("".join(encoded.split()), validate=True)
         except Exception as exc:
             raise ConflictError("Factory product evidence is not valid base64") from exc
         if len(raw) > limit:
@@ -827,7 +922,7 @@ class GitHubReturnClient:
         if existing.get("encoding") != "base64":
             return False
         try:
-            content = json.loads(base64.b64decode(existing["content"], validate=True))
+            content = json.loads(GitHubReturnClient._decode_content(existing, 64_000))
         except Exception:
             return False
         # Never treat a matching Store ID alone as proof of operator review.
@@ -855,9 +950,10 @@ class GitHubReturnClient:
         }
         if any(content.get(key) != value for key, value in expected.items()):
             return False
-        return all(content.get(key) == official.get(key) for key in
-                   ("store_id", "name", "publisher", "version",
-                    "package_family_name", "package_sid"))
+        keys = ["store_id", "name", "publisher", "package_family_name", "package_sid"]
+        if official.get("version") is not None:
+            keys.append("version")
+        return all(content.get(key) == official.get(key) for key in keys)
 
     @staticmethod
     def _gh_api(endpoint: str, body: dict[str, Any] | None = None, allow_missing: bool = False) -> Any:
