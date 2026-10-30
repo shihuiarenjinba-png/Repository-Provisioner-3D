@@ -50,6 +50,12 @@ class PrismRevisionHandoffRuntimeTests(unittest.TestCase):
             ("evidence.factory.archive_bytes", True),
             ("evidence.factory.expires_at", "2026-01-01T00:00:00Z"),
             ("immutable_original_provenance.identity_reference_is_new_revision_approval", True),
+            ("immutable_original_provenance.identity_reference_commit", "f" * 40),
+            ("gates.factory_export", "PASS"),
+            ("gates.godot_windows_export", "PASS"),
+            ("gates.exe_pck_provisioner", "PASS"),
+            ("gates.pre_identity", "PASS"),
+            ("gates.registration_type", "GDK_GAME"),
         )
         for path, value in cases:
             with self.subTest(path=path):
@@ -61,6 +67,18 @@ class PrismRevisionHandoffRuntimeTests(unittest.TestCase):
                 target[parts[-1]] = value
                 with self.assertRaises(RevisionHandoffError):
                     validate_revision_handoff(changed, now=self.observed + timedelta(seconds=1))
+
+    def test_duplicate_identity_field_does_not_pass_set_equality(self):
+        changed = copy.deepcopy(self.h)
+        changed["user_id_request"]["required_fields"].append("store_id")
+        with self.assertRaisesRegex(RevisionHandoffError, "missing official Identity request"):
+            validate_revision_handoff(changed, now=self.observed + timedelta(seconds=1))
+
+    def test_missing_historical_identity_commit_fails_closed(self):
+        changed = copy.deepcopy(self.h)
+        del changed["immutable_original_provenance"]["identity_reference_commit"]
+        with self.assertRaisesRegex(RevisionHandoffError, "historical Identity"):
+            validate_revision_handoff(changed, now=self.observed + timedelta(seconds=1))
 
     def test_self_consistent_source_rebinding_rejected(self):
         # A substituted revision can satisfy the derived request_id and Factory
