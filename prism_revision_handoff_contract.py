@@ -63,12 +63,12 @@ def validate_revision_handoff(h, *, now=None, require_unexpired=True):
     if h.get("allow_local_product_creation") is not False:
         raise RevisionHandoffError("duplicate Partner Center product creation")
     old = h.get("immutable_original_provenance")
-    if not isinstance(old, dict) or old.get("source_sha") != "15fdcb52e46e35e6de8e87c55af99719c21e09b9" or old.get("identity_reference_is_new_revision_approval") is not False or old["source_sha"] == source:
+    if not isinstance(old, dict) or old.get("source_sha") != "15fdcb52e46e35e6de8e87c55af99719c21e09b9" or old.get("identity_reference_is_new_revision_approval") is not False or old.get("identity_reference_commit") != "11417b75636ee18816028ffd5221884c4c9a9836" or old["source_sha"] == source:
         raise RevisionHandoffError("historical Identity cannot authorize revision")
     request = h.get("user_id_request")
     fields = {"store_id", "reserved_display_name", "package_identity_name", "publisher",
               "publisher_display_name", "pfn", "package_sid"}
-    if not isinstance(request, dict) or request.get("status") != "REVERIFY_EXISTING_PRODUCT_IDENTITY" or request.get("xbox_fields_required") is not False or not isinstance(request.get("required_fields"), list) or set(request["required_fields"]) != fields:
+    if not isinstance(request, dict) or request.get("status") != "REVERIFY_EXISTING_PRODUCT_IDENTITY" or request.get("xbox_fields_required") is not False or not isinstance(request.get("required_fields"), list) or len(request["required_fields"]) != len(fields) or set(request["required_fields"]) != fields:
         raise RevisionHandoffError("missing official Identity request")
     observed = timestamp(h.get("evidence_observed_at"), "evidence_observed_at")
     if now is None:
@@ -117,6 +117,15 @@ def validate_revision_handoff(h, *, now=None, require_unexpired=True):
         "identity_cas", "approved_package_version", "signed_post_identity_msix",
         "windows_all_auto_intake", "product_e2e")):
         raise RevisionHandoffError("unproven E2E gate promoted")
+    expected_non_e2e_gates = {
+        "factory_export": "PASS_PREVIOUS_RUN",
+        "godot_windows_export": "PASS_PREVIOUS_RUN",
+        "exe_pck_provisioner": "PASS_REAL_REVISION_BYTES_CORRELATED",
+        "pre_identity": "PRE_IDENTITY_READY",
+        "registration_type": "MSIX_OR_PWA_GAME",
+    }
+    if any(gates.get(key) != value for key, value in expected_non_e2e_gates.items()):
+        raise RevisionHandoffError("unproven PRE or registration gate promoted")
     if gates.get("local_gpu_install_gui") != "DEFERRED_LOCAL_GATE" or gates.get("unsigned_makeappx") != "PASS_UNSIGNED_QA_ONLY":
         raise RevisionHandoffError("local/unsigned gate misrepresented")
     controls = h.get("controls")
