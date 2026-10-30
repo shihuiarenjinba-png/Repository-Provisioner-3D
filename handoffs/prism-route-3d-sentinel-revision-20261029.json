@@ -46,39 +46,39 @@
       "expires_at": "2026-11-05T15:24:12Z"
     },
     "provisioner_pre": {
-      "run_id": 40957492566,
-      "run_head_sha": "4216a3e8676d84e7f0305c4720f2ae39e07f8e57",
-      "artifact_id": 12934601669,
+      "run_id": 40979895481,
+      "run_head_sha": "39a05f817a476bb6f9cea1101e2394a8c02aeae0",
+      "artifact_id": 12944695897,
       "artifact_name": "prism-route-3d-sentinel-revision-provisioner-pre",
-      "archive_digest": "sha256:07aba4681838cf12bb0041d87bf984f461176cef3490d5a80233afe490a919fd",
+      "archive_digest": "sha256:9f40c314e795eca4ec2a2c51a307a4791a609ad2cdcff2fbd49a24d0c9f9429c",
       "archive_bytes": 2483,
-      "expires_at": "2026-11-05T21:24:55Z"
+      "expires_at": "2026-11-06T00:29:14Z"
     },
     "unsigned_makeappx": {
-      "run_id": 40957492480,
-      "run_head_sha": "4216a3e8676d84e7f0305c4720f2ae39e07f8e57",
-      "artifact_id": 12934172246,
+      "run_id": 40979895472,
+      "run_head_sha": "39a05f817a476bb6f9cea1101e2394a8c02aeae0",
+      "artifact_id": 12944636112,
       "artifact_name": "prism-route-3d-sentinel-revision-makeappx-unsigned-qa",
-      "archive_digest": "sha256:99f67b8ab23d7aecea316e9069644a10db25c4bdf4d0542f6c01e6092e8fa9f3",
-      "archive_bytes": 31031429,
-      "expires_at": "2026-11-03T21:24:45Z",
+      "archive_digest": "sha256:0d05bc1f0a95adc2e1615d1be0a02200c928539cfa620205bed339080dc95c9c",
+      "archive_bytes": 31032521,
+      "expires_at": "2026-11-04T00:29:01Z",
       "signed": false,
       "store_ready": false
     },
     "independent_pck_diagnostic": {
-      "run_id": 40957492562,
-      "run_head_sha": "4216a3e8676d84e7f0305c4720f2ae39e07f8e57",
-      "artifact_id": 12933953273,
+      "run_id": 40979895500,
+      "run_head_sha": "39a05f817a476bb6f9cea1101e2394a8c02aeae0",
+      "artifact_id": 12944321928,
       "artifact_name": "prism-route-3d-independent-pck-diagnostic",
-      "archive_digest": "sha256:d472d25cec746cb9c2b05724754bdcb4d4d4d4726a26ac942b3e41b41ee26a0f",
-      "archive_bytes": 13281,
-      "expires_at": "2026-10-30T21:24:59Z",
+      "archive_digest": "sha256:70464918d2ad5998f58c18bfc3aca5113e54b37ff822ba3725a691fa41026d37",
+      "archive_bytes": 13284,
+      "expires_at": "2026-10-31T00:29:15Z",
       "diagnostic_only": true,
       "not_store_payload": true
     }
   },
-  "evidence_observed_at": "2026-10-29T21:25:15Z",
-  "evidence_observation_scope": "Authenticated GitHub Actions API metadata: pinned new-source Factory export, revision PRE and unsigned MakeAppx QA completed successfully; independent PCK diagnostic is original-source only, not new-revision Store payload. The Provisioner run HEAD is a verified historical run snapshot, not a claim that the handoff-writing commit itself was used. ZIP digests are archive digests, not EXE/PCK/MSIX payload hashes; recheck expiration and bytes at use time.",
+  "evidence_observed_at": "2026-10-30T01:24:07Z",
+  "evidence_observation_scope": "Authenticated GitHub Actions metadata observed 2026-10-30 10:24 JST: pinned Factory run 40901053437 and latest successful revision PRE 40979895481 / unsigned MakeAppx 40979895472 (same historical Provisioner HEAD 39a05f...), plus independent PCK diagnostic 40979895500 (original source only). Revision PRE completed authenticated live GitHub metadata and real historical ZIP/EXE/PCK/MSIX byte verification; the refreshed latest PRE and unsigned QA ZIP bytes still require separate consume-time verification. Artifact ZIP digest is not an inner payload digest. All Store Identity/CAS, version, signing, Windows intake and product E2E gates remain HOLD.",
   "gates": {
     "factory_export": "PASS_PREVIOUS_RUN",
     "godot_windows_export": "PASS_PREVIOUS_RUN",
