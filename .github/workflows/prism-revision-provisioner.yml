@@ -55,6 +55,9 @@ jobs:
           assert receipt['product_e2e']=='HOLD'
           assert receipt['store_submission_allowed'] is False
           assert receipt['artifact_zip_bytes_verified'] is False
+          assert receipt['pinned_verifier_job_authenticated'] is True
+          assert receipt['pinned_verifier_step_authenticated'] is True
+          assert receipt['new_output_artifact_bytes_reverified'] is False
           assert receipt['official_identity_cas_verified'] is False
           print('PASS: authenticated GitHub metadata matched; payload, Identity and E2E remain HOLD')
           PY
