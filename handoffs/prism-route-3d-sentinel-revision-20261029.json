@@ -78,7 +78,7 @@
     }
   },
   "evidence_observed_at": "2026-10-30T08:20:00Z",
-  "evidence_observation_scope": "Authenticated GitHub Actions artifact metadata re-pinned 2026-10-30 17:20 JST. Sentinel PRE run 41020501779/artifact 12961277866 and Sentinel unsigned MakeAppx run 41020501832/artifact 12961735943 both on Provisioner HEAD 0bfecf99fb92ce1f05fb15b81760909eb699444b; old-source independent PCK diagnostic run 41020681949/artifact 12960748998 on HEAD c050dcd019981c625be7cf8fcdb5a6e663c64db9, diagnostic only; Factory 40901053437/12909162367 unchanged. All listed metadata valid and unexpired at observation. Prior workflow byte verifier succeeded on previous pinned snapshot, but this newly refreshed snapshot ZIP/EXE/PCK/MSIX bytes are NOT independently verified until a new verifier workflow succeeds. Archive digest is not inner payload digest. Official Identity/CAS, approved package version, signed post-Identity MSIX, Windows intake and product E2E remain HOLD.",
+  "evidence_observation_scope": "Authenticated GitHub Actions artifact metadata re-pinned 2026-10-30 17:20 JST. Sentinel PRE run 41020501779/artifact 12961277866 and Sentinel unsigned MakeAppx run 41020501832/artifact 12961735943 both on Provisioner HEAD 0bfecf99fb92ce1f05fb15b81760909eb699444b; old-source independent PCK diagnostic run 41020681949/artifact 12960748998 on HEAD c050dcd019981c625be7cf8fcdb5a6e663c64db9, diagnostic only; Factory 40901053437/12909162367 unchanged. All listed metadata valid and unexpired at observation. Prior workflow byte verifier succeeded on previous pinned snapshot, but this newly refreshed snapshot ZIP/EXE/PCK/MSIX bytes are NOT independently verified until a new verifier workflow succeeds. Archive digest is not inner payload digest. Official Identity/CAS, approved package version, signed post-Identity MSIX, Windows intake and product E2E remain HOLD. Follow-up verification: workflow 41026270987 job 123965017342 on HEAD 0a856a68fa10ee04f0a5a84219485ab2b3dfd880 completed the authenticated real ZIP/EXE/PCK/MSIX byte-verifier step SUCCESS for the unchanged pinned snapshot. Newly produced artifacts 12963298785 (PRE) and 12963139846 (unsigned MakeAppx) were not independently re-consumed; no Store-ready promotion.",
   "gates": {
     "factory_export": "PASS_PREVIOUS_RUN",
     "godot_windows_export": "PASS_PREVIOUS_RUN",
@@ -101,5 +101,23 @@
     "auto_merge_allowed": false
   },
   "handoff_owner": "36-minute Windows/local lane",
-  "next_action": "24-minute 3D lane: execute live GitHub metadata and real ZIP/EXE/PCK/MSIX byte verifier on newly refreshed snapshot, record run result; 36-minute Windows lane: independently authenticate existing Partner Center product and all seven Identity fields, CAS bind new source/request, approve package version before signed post-Identity MSIX. Never create duplicate product, never submit Store."
+  "next_action": "24-minute 3D lane: preserve the already byte-verified pinned snapshot and monitor artifact expiry; do not rotate to newly output artifacts without their own verification. 36-minute Windows lane: independently authenticate existing Partner Center product and all seven Identity fields, obtain official new-source/request CAS and approve package version before post-Identity signed MSIX and Windows-all-auto intake. No duplicate product creation or Store submission.",
+  "pinned_snapshot_verification": {
+    "status": "PASS_REAL_ZIP_EXE_PCK_MSIX_BYTES_HOLD_ONLY",
+    "verified_workflow_run_id": 41026270987,
+    "verified_job_id": 123965017342,
+    "verified_workflow_head_sha": "0a856a68fa10ee04f0a5a84219485ab2b3dfd880",
+    "verified_step": "Authenticated real Factory and unsigned MSIX byte verification (HOLD-only)",
+    "verified_step_conclusion": "success",
+    "verified_artifact_ids": {
+      "factory": 12909162367,
+      "provisioner_pre": 12961277866,
+      "unsigned_makeappx": 12961735943,
+      "independent_pck_diagnostic": 12960748998
+    },
+    "verification_scope": "The pinned artifact snapshot was consumed by the authenticated real byte-verifier step. The workflow's new output artifacts are not independently re-consumed. This does not prove Partner Center Identity/CAS, signed MSIX, Windows intake or product E2E.",
+    "new_output_artifact_bytes_reverified": false,
+    "official_identity_cas_verified": false,
+    "store_submission_allowed": false
+  }
 }
