@@ -24,14 +24,22 @@ class PrismRevisionHandoffRuntimeTests(unittest.TestCase):
         self.assertEqual(receipt["pinned_verifier_claim"],
                          "CONSISTENT_NOT_INDEPENDENTLY_AUTHENTICATED")
 
-    def test_consumption_rejects_expired_diagnostic(self):
+    def test_expired_old_source_diagnostic_does_not_block_sentinel(self):
         expiry = datetime.fromisoformat(
             self.h["evidence"]["independent_pck_diagnostic"]["expires_at"].replace("Z", "+00:00"))
-        with self.assertRaisesRegex(RevisionHandoffError, "expired artifact"):
-            validate_revision_handoff(self.h, now=expiry)
-        # Archival inspection remains possible, but must not authorize current bytes.
-        receipt = validate_revision_handoff(self.h, now=expiry, require_unexpired=False)
+        # Old-source PCK diagnostic is not a Sentinel payload. Sentinel's
+        # Factory/PRE/unsigned MSIX must remain verifiable after its expiry.
+        receipt = validate_revision_handoff(self.h, now=expiry)
+        self.assertIs(receipt["historical_pck_diagnostic_expired"], True)
+        self.assertIs(receipt["historical_pck_diagnostic_is_new_source_payload"], False)
         self.assertEqual(receipt["product_e2e"], "HOLD")
+        self.assertEqual(receipt["identity_cas"], "HOLD")
+        for kind in ("factory", "provisioner_pre", "unsigned_makeappx"):
+            actual_expiry = datetime.fromisoformat(
+                self.h["evidence"][kind]["expires_at"].replace("Z", "+00:00"))
+            with self.subTest(kind=kind):
+                with self.assertRaisesRegex(RevisionHandoffError, "expired artifact"):
+                    validate_revision_handoff(self.h, now=actual_expiry)
 
     def test_fail_closed_mutations(self):
         cases = (
@@ -186,6 +194,29 @@ class PrismGithubMetadataTests(unittest.TestCase):
         self.assertIs(receipt["artifact_zip_bytes_verified"], False)
         self.assertIs(receipt["store_submission_allowed"], False)
         self.assertEqual(receipt["product_e2e"], "HOLD")
+
+    def test_expired_historical_diagnostic_is_not_queried(self):
+        runs, artifacts = self.make_api()
+        expiry = datetime.fromisoformat(
+            self.h["evidence"]["independent_pck_diagnostic"]["expires_at"].replace("Z", "+00:00"))
+        from prism_revision_handoff_contract import verify_github_metadata
+        diagnostic = self.h["evidence"]["independent_pck_diagnostic"]
+        def fetch_run(repo, run_id):
+            if run_id == diagnostic["run_id"]:
+                raise AssertionError("expired legacy diagnostic must not be fetched")
+            return runs[(repo, run_id)]
+        def fetch_artifacts(repo, run_id):
+            if run_id == diagnostic["run_id"]:
+                raise AssertionError("expired legacy diagnostic must not be fetched")
+            return artifacts[(repo, run_id)]
+        receipt = verify_github_metadata(
+            self.h, now=expiry, fetch_run=fetch_run, fetch_artifacts=fetch_artifacts)
+        self.assertEqual(set(receipt["github_metadata_checked"]),
+                         {"factory", "provisioner_pre", "unsigned_makeappx"})
+        self.assertEqual(receipt["expired_historical_diagnostics_skipped"],
+                         ["independent_pck_diagnostic"])
+        self.assertEqual(receipt["product_e2e"], "HOLD")
+        self.assertIs(receipt["store_submission_allowed"], False)
 
     def test_live_api_drift_rejected(self):
         repo = "shihuiarenjinba-png/Repository-Provisioner-3D"
