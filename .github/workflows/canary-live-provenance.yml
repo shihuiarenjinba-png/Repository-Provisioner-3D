@@ -144,7 +144,15 @@ jobs:
           gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pre_artifact_id" > /tmp/prism-api/pre_artifact.json
           gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/$qa_run_id" > /tmp/prism-api/qa_run.json
           gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$qa_artifact_id" > /tmp/prism-api/qa_artifact.json
-          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pck_artifact_id" > /tmp/prism-api/pck_artifact.json
+          # This is an old-source, one-day diagnostic, never the Store PCK.
+          # Its expiry must not prevent live Factory/PRE/MakeAppx validation.
+          pck_expires="$(jq -er '.independent_pck_diagnostic_evidence.artifact_expires_at' "$handoff")"
+          if (( $(date -u +%s) < $(date -u -d "$pck_expires" +%s) )); then
+            gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pck_artifact_id" > /tmp/prism-api/pck_artifact.json
+          else
+            printf 'null\n' > /tmp/prism-api/pck_artifact.json
+            echo "SKIP: expired old-source PCK diagnostic (not Store payload)"
+          fi
           gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/compare/$source_sha...$observed_head" > /tmp/prism-api/factory_compare.json
           # Compare is historical; also verify the current remote Factory HEAD.
           gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/branches/codex/3d-canary-prism-route-20261028" > /tmp/prism-api/factory_branch.json
@@ -165,6 +173,9 @@ jobs:
           r=json.loads(Path('canary-remote-evidence.json').read_text())
           assert r['metadata_comparison']=='PASS_CALLER_SUPPLIED_API_RESPONSES'
           assert r['factory_branch_head_matched_snapshot'] is True
+          assert r['historical_pck_diagnostic_is_store_payload'] is False
+          assert r['historical_pck_diagnostic_metadata'] in (
+              'PASS_METADATA_ONLY', 'SKIPPED_EXPIRED_OLD_SOURCE')
           assert r['product_e2e']=='HOLD'
           assert r['signed_msix_verified'] is False
           assert r['windows_all_auto_intake_verified'] is False
