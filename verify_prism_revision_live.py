@@ -41,6 +41,56 @@ def _github_artifacts(repo, run_id):
     return artifacts
 
 
+def _authenticate_pinned_verifier(handoff):
+    """Independently authenticate the pinned successful byte-verifier job.
+
+    A self-consistent JSON receipt is not proof of a GitHub run. This check
+    fetches the exact run and job/step via read-only authenticated GitHub API.
+    It does not re-download ZIP bytes or authorize Store submission.
+    """
+    claim = handoff["pinned_snapshot_verification"]
+    repo = "shihuiarenjinba-png/Repository-Provisioner-3D"
+    run_id = claim["verified_workflow_run_id"]
+    job_id = claim["verified_job_id"]
+    run = _github_run(repo, run_id)
+    job = _github_json(f"/repos/{repo}/actions/jobs/{job_id}")
+    if (type(run.get("id")) is not int or run["id"] != run_id
+            or run.get("status") != "completed"
+            or run.get("conclusion") != "success"
+            or run.get("head_sha") != claim["verified_workflow_head_sha"]
+            or run.get("head_branch") != "codex/e2e-belt-connection-20261027"
+            or run.get("event") != "push"
+            or run.get("path") != ".github/workflows/prism-revision-provisioner.yml"
+            or type(run.get("workflow_id")) is not int
+            or run["workflow_id"] != 400477810
+            or not isinstance(run.get("repository"), dict)
+            or type(run["repository"].get("id")) is not int
+            or run["repository"]["id"] != 1434261585
+            or not isinstance(run.get("head_repository"), dict)
+            or type(run["head_repository"].get("id")) is not int
+            or run["head_repository"]["id"] != 1434261585):
+        raise RevisionHandoffError("pinned verifier GitHub run mismatch")
+    if (type(job.get("id")) is not int or job["id"] != job_id
+            or type(job.get("run_id")) is not int or job["run_id"] != run_id
+            or job.get("name") != "prism-revision-pre"
+            or job.get("status") != "completed"
+            or job.get("conclusion") != "success"):
+        raise RevisionHandoffError("pinned verifier GitHub job mismatch")
+    steps = job.get("steps")
+    if not isinstance(steps, list):
+        raise RevisionHandoffError("pinned verifier job steps missing")
+    matches = [step for step in steps if isinstance(step, dict)
+               and step.get("name") == claim["verified_step"]]
+    if (len(matches) != 1 or matches[0].get("status") != "completed"
+            or matches[0].get("conclusion") != claim["verified_step_conclusion"]
+            or matches[0].get("conclusion") != "success"):
+        raise RevisionHandoffError("pinned verifier GitHub step mismatch")
+    return {"pinned_verifier_job_authenticated": True,
+            "pinned_verifier_job_id": job_id,
+            "pinned_verifier_step_authenticated": True,
+            "new_output_artifact_bytes_reverified": False}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--handoff", type=Path, default=DEFAULT_HANDOFF)
@@ -54,6 +104,7 @@ def main(argv=None):
                 or receipt.get("product_e2e") != "HOLD"
                 or receipt.get("store_submission_allowed") is not False):
             raise RevisionHandoffError("unexpected authorization in HOLD-only receipt")
+        receipt.update(_authenticate_pinned_verifier(handoff))
     except (OSError, ValueError, subprocess.SubprocessError, TimeoutError) as exc:
         # Avoid leaking tokens, HTTP response bodies or sensitive subprocess output.
         print(json.dumps({"status": "HOLD", "reason": type(exc).__name__,
