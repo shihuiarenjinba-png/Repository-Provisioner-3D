@@ -49,9 +49,18 @@ jobs:
           from pathlib import Path
           receipt=json.loads(Path('/tmp/prism-live-metadata-receipt.json').read_text())
           assert receipt['status']=='GITHUB_METADATA_MATCH_HOLD_PAYLOAD_NOT_VERIFIED'
-          assert receipt['github_metadata_checked']==[
-            'factory','provisioner_pre','unsigned_makeappx','independent_pck_diagnostic'
-          ]
+          # The old-source diagnostic expires independently of the real
+          # Sentinel Factory/PRE/MSIX artifacts. Verify exact coverage in
+          # both states without treating an expired diagnostic as live proof.
+          required=['factory','provisioner_pre','unsigned_makeappx']
+          historical='independent_pck_diagnostic'
+          skipped=receipt['expired_historical_diagnostics_skipped']
+          assert skipped in ([],[historical])
+          assert receipt['github_metadata_checked']==(
+            required if skipped else required+[historical]
+          )
+          assert receipt['historical_pck_diagnostic_expired'] is bool(skipped)
+          assert receipt['historical_pck_diagnostic_is_new_source_payload'] is False
           assert receipt['product_e2e']=='HOLD'
           assert receipt['store_submission_allowed'] is False
           assert receipt['artifact_zip_bytes_verified'] is False
