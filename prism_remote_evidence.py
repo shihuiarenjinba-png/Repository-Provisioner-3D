@@ -78,7 +78,8 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
         "factory_run", "factory_artifact", "pre_run", "pre_artifact",
         "qa_run", "qa_artifact", "pck_artifact", "factory_compare",
         "factory_branch"
-    } or not all(isinstance(v, dict) for v in remote.values()):
+    } or not all(isinstance(v, dict) for k, v in remote.items()
+               if k != "pck_artifact"):
         raise HandoffContractError("missing remote GitHub API observations")
     now = now_utc or datetime.now(timezone.utc)
     if now.tzinfo is None or now.utcoffset() is None:
@@ -88,6 +89,15 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
     pre = handoff["provisioner_pre_identity_evidence"]
     qa = handoff["real_makeappx_qa_evidence"]
     pck = handoff["independent_pck_diagnostic_evidence"]
+    # The independent PCK is a short-lived, old-source diagnostic, not
+    # the immutable Factory payload. Expiry must not block the real PRE
+    # and unsigned MSIX checks, nor be reported as live verification.
+    pck_expires = datetime.strptime(
+        pck["artifact_expires_at"], "%Y-%m-%dT%H:%M:%SZ"
+    ).replace(tzinfo=timezone.utc)
+    historical_pck_expired = pck_expires <= now
+    if not historical_pck_expired and not isinstance(remote["pck_artifact"], dict):
+        raise HandoffContractError("missing unexpired PCK diagnostic metadata")
     _check_run(remote["factory_run"], factory, FACTORY_BRANCH, handoff["source_sha"])
     _check_artifact(remote["factory_artifact"], factory, handoff["source_sha"],
                     FACTORY_BRANCH, now, FACTORY_REPOSITORY_ID)
@@ -100,8 +110,9 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
                         PROVISIONER_BRANCH, now, PROVISIONER_REPOSITORY_ID)
     _eq(pck["run_id"], pre["run_id"], "PCK parent PRE run")
     _eq(pck["run_head_sha"], pre["run_head_sha"], "PCK parent HEAD")
-    _check_artifact(remote["pck_artifact"], pck, pre["run_head_sha"],
-                    PROVISIONER_BRANCH, now, PROVISIONER_REPOSITORY_ID)
+    if not historical_pck_expired:
+        _check_artifact(remote["pck_artifact"], pck, pre["run_head_sha"],
+                        PROVISIONER_BRANCH, now, PROVISIONER_REPOSITORY_ID)
     # A valid historical Identity-only compare does not prove that the
     # current Factory branch still points to the same observed commit.
     branch_snapshot = remote["factory_branch"]
@@ -144,6 +155,12 @@ def verify_remote_snapshot(handoff: dict[str, Any], remote: dict[str, Any],
         "pre_run_id": pre["run_id"],
         "qa_run_id": qa["run_id"],
         "pck_diagnostic_artifact_id": pck["artifact_id"],
+        "historical_pck_diagnostic_expired": historical_pck_expired,
+        "historical_pck_diagnostic_metadata": (
+            "SKIPPED_EXPIRED_OLD_SOURCE" if historical_pck_expired
+            else "PASS_METADATA_ONLY"
+        ),
+        "historical_pck_diagnostic_is_store_payload": False,
         "pck_payload_bytes_verified_by_this_check": False,
         "metadata_comparison": "PASS_CALLER_SUPPLIED_API_RESPONSES",
         "factory_branch_head_matched_snapshot": True,
