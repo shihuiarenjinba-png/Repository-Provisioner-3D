@@ -11,6 +11,8 @@ on:
       - tests/test_prism_revision_pin_consistency.py
       - tests/test_prism_sentinel_revision_handoff.py
       - prism_revision_handoff_contract.py
+      - verify_prism_revision_bytes.py
+      - tests/test_verify_prism_revision_bytes.py
       - tests/test_prism_revision_handoff_runtime.py
       - handoffs/prism-route-3d-sentinel-revision-20261029.json
   workflow_dispatch:
