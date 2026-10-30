@@ -13,6 +13,8 @@ on:
       - prism_revision_handoff_contract.py
       - verify_prism_revision_live.py
       - tests/test_verify_prism_revision_live.py
+      - verify_prism_revision_bytes.py
+      - tests/test_verify_prism_revision_bytes.py
       - tests/test_prism_revision_handoff_runtime.py
       - handoffs/prism-route-3d-sentinel-revision-20261029.json
   workflow_dispatch:
@@ -55,6 +57,25 @@ jobs:
           assert receipt['artifact_zip_bytes_verified'] is False
           assert receipt['official_identity_cas_verified'] is False
           print('PASS: authenticated GitHub metadata matched; payload, Identity and E2E remain HOLD')
+          PY
+      - name: Authenticated real Factory and unsigned MSIX byte verification (HOLD-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python verify_prism_revision_bytes.py > /tmp/prism-live-byte-receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('/tmp/prism-live-byte-receipt.json').read_text())
+          assert r['status']=='FACTORY_AND_UNSIGNED_MSIX_BYTES_CORRELATED_HOLD_IDENTITY'
+          assert r['artifact_zip_bytes_verified'] is True
+          assert r['inner_exe_pck_msix_verified'] is True
+          assert r['official_identity_cas_verified'] is False
+          assert r['signature_verified'] is False
+          assert r['windows_all_auto_intake_verified'] is False
+          assert r['store_submission_allowed'] is False
+          assert r['product_e2e']=='HOLD'
+          print('PASS: real Factory ZIP, EXE/PCK and unsigned MSIX payload bytes match; Identity and E2E remain HOLD')
           PY
       - name: Install official Godot 4.3 with Windows x64 export templates
         shell: bash
