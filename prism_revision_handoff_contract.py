@@ -128,6 +128,36 @@ def validate_revision_handoff(h, *, now=None, require_unexpired=True):
         raise RevisionHandoffError("unproven PRE or registration gate promoted")
     if gates.get("local_gpu_install_gui") != "DEFERRED_LOCAL_GATE" or gates.get("unsigned_makeappx") != "PASS_UNSIGNED_QA_ONLY":
         raise RevisionHandoffError("local/unsigned gate misrepresented")
+    # A verifier SUCCESS claim must refer to exactly the artifacts pinned
+    # above. This is an internal consistency check, NOT proof that the
+    # referenced GitHub job/step actually ran: consumers must authenticate it.
+    verification = h.get("pinned_snapshot_verification")
+    if not isinstance(verification, dict):
+        raise RevisionHandoffError("missing pinned verifier receipt")
+    if verification.get("status") != "PASS_REAL_ZIP_EXE_PCK_MSIX_BYTES_HOLD_ONLY":
+        raise RevisionHandoffError("unsafe pinned verifier status")
+    for field in ("verified_workflow_run_id", "verified_job_id"):
+        if type(verification.get(field)) is not int or verification[field] <= 0:
+            raise RevisionHandoffError(f"invalid pinned verifier {field}")
+    verifier_head = verification.get("verified_workflow_head_sha")
+    if not isinstance(verifier_head, str) or not SHA.fullmatch(verifier_head):
+        raise RevisionHandoffError("invalid pinned verifier HEAD")
+    if (verification.get("verified_step")
+            != "Authenticated real Factory and unsigned MSIX byte verification (HOLD-only)"
+            or verification.get("verified_step_conclusion") != "success"):
+        raise RevisionHandoffError("pinned verifier step not successful")
+    verified_ids = verification.get("verified_artifact_ids")
+    if (not isinstance(verified_ids, dict) or set(verified_ids) != set(ARTIFACTS)
+            or any(type(verified_ids[kind]) is not int
+                   or verified_ids[kind] != evidence[kind]["artifact_id"]
+                   for kind in ARTIFACTS)):
+        raise RevisionHandoffError("pinned verifier artifact IDs do not match snapshot")
+    for field in ("new_output_artifact_bytes_reverified",
+                  "official_identity_cas_verified", "store_submission_allowed"):
+        if verification.get(field) is not False:
+            raise RevisionHandoffError(f"unsafe pinned verifier {field}")
+    if not isinstance(verification.get("verification_scope"), str) or not verification["verification_scope"].strip():
+        raise RevisionHandoffError("missing pinned verifier scope")
     controls = h.get("controls")
     if not isinstance(controls, dict) or any(controls.get(key) is not False for key in (
         "second_3d_product_allowed", "store_submission_allowed", "main_release_write_allowed",
@@ -137,7 +167,8 @@ def validate_revision_handoff(h, *, now=None, require_unexpired=True):
             "source_sha": source, "request_id": expected["request_id"],
             "identity_cas": "HOLD", "signed_msix": "HOLD",
             "windows_all_auto_intake": "HOLD", "product_e2e": "HOLD",
-            "github_artifact_authentication": "REQUIRED_SEPARATELY"}
+            "github_artifact_authentication": "REQUIRED_SEPARATELY",
+            "pinned_verifier_claim": "CONSISTENT_NOT_INDEPENDENTLY_AUTHENTICATED"}
 
 
 def verify_github_metadata(h, *, fetch_run, fetch_artifacts, now=None):
