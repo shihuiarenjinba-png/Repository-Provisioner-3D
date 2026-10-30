@@ -46,39 +46,39 @@
       "expires_at": "2026-11-05T15:24:12Z"
     },
     "provisioner_pre": {
-      "run_id": 41002555736,
-      "run_head_sha": "aecc6b2824a76fa48ae901cb53492da48445e0b4",
-      "artifact_id": 12954530276,
+      "run_id": 41020501779,
+      "run_head_sha": "0bfecf99fb92ce1f05fb15b81760909eb699444b",
+      "artifact_id": 12961277866,
       "artifact_name": "prism-route-3d-sentinel-revision-provisioner-pre",
-      "archive_digest": "sha256:c4190faf2a3a78a13ce54922122694dfa60d40a99d64180bb017d32e8fcb820e",
-      "archive_bytes": 2481,
-      "expires_at": "2026-11-06T04:23:30Z"
+      "archive_digest": "sha256:516f9dad3375ee8b4d6bc86b98b0542c3a140206de23b9badfe296c0f5a73b8c",
+      "archive_bytes": 2482,
+      "expires_at": "2026-11-06T07:31:18Z"
     },
     "unsigned_makeappx": {
-      "run_id": 41002555799,
-      "run_head_sha": "aecc6b2824a76fa48ae901cb53492da48445e0b4",
-      "artifact_id": 12954350804,
+      "run_id": 41020501832,
+      "run_head_sha": "0bfecf99fb92ce1f05fb15b81760909eb699444b",
+      "artifact_id": 12961735943,
       "artifact_name": "prism-route-3d-sentinel-revision-makeappx-unsigned-qa",
-      "archive_digest": "sha256:bf36d58615ffbfb7ef4c781f53e2eb887b8e9ab3f4eaf8b78a663263b313468d",
-      "archive_bytes": 31031429,
-      "expires_at": "2026-11-04T04:23:22Z",
+      "archive_digest": "sha256:d678c0ff7c014f86a3d4ccb6517a9eafa65b409016dc57a650ed3d017c2f3be2",
+      "archive_bytes": 31032520,
+      "expires_at": "2026-11-04T07:31:03Z",
       "signed": false,
       "store_ready": false
     },
     "independent_pck_diagnostic": {
-      "run_id": 41002555738,
-      "run_head_sha": "aecc6b2824a76fa48ae901cb53492da48445e0b4",
-      "artifact_id": 12954395615,
+      "run_id": 41020681949,
+      "run_head_sha": "c050dcd019981c625be7cf8fcdb5a6e663c64db9",
+      "artifact_id": 12960748998,
       "artifact_name": "prism-route-3d-independent-pck-diagnostic",
-      "archive_digest": "sha256:075ff9fb8ca336545d4f9cad0e2f09c73c47858bd758910ea19c785499307fa9",
-      "archive_bytes": 13283,
-      "expires_at": "2026-10-31T04:23:32Z",
+      "archive_digest": "sha256:94c98a8d3a545ff5591315cc21079630966e364ef7b74e5e64e87074a3343591",
+      "archive_bytes": 13284,
+      "expires_at": "2026-10-31T07:33:07Z",
       "diagnostic_only": true,
       "not_store_payload": true
     }
   },
-  "evidence_observed_at": "2026-10-30T05:25:30Z",
-  "evidence_observation_scope": "Authenticated GitHub Actions artifact metadata rechecked 2026-10-30 14:25 JST: pinned Factory 40901053437/12909162367; latest prior-head Sentinel PRE 41002555736/12954530276; unsigned MakeAppx 41002555799/12954350804; independent old-source PCK diagnostic 41002555738/12954395615. All metadata unexpired at observation; newly refreshed PRE/QA artifact ZIP bytes have NOT yet been independently consumed by the checked-in verifier. Independent PCK is diagnostic-only, not Sentinel revision or Store payload. Archive digest is not an inner payload digest. Official Identity/CAS, approved package version, signed post-Identity MSIX, Windows intake and E2E remain HOLD.",
+  "evidence_observed_at": "2026-10-30T08:20:00Z",
+  "evidence_observation_scope": "Authenticated GitHub Actions artifact metadata re-pinned 2026-10-30 17:20 JST. Sentinel PRE run 41020501779/artifact 12961277866 and Sentinel unsigned MakeAppx run 41020501832/artifact 12961735943 both on Provisioner HEAD 0bfecf99fb92ce1f05fb15b81760909eb699444b; old-source independent PCK diagnostic run 41020681949/artifact 12960748998 on HEAD c050dcd019981c625be7cf8fcdb5a6e663c64db9, diagnostic only; Factory 40901053437/12909162367 unchanged. All listed metadata valid and unexpired at observation. Prior workflow byte verifier succeeded on previous pinned snapshot, but this newly refreshed snapshot ZIP/EXE/PCK/MSIX bytes are NOT independently verified until a new verifier workflow succeeds. Archive digest is not inner payload digest. Official Identity/CAS, approved package version, signed post-Identity MSIX, Windows intake and product E2E remain HOLD.",
   "gates": {
     "factory_export": "PASS_PREVIOUS_RUN",
     "godot_windows_export": "PASS_PREVIOUS_RUN",
@@ -101,5 +101,5 @@
     "auto_merge_allowed": false
   },
   "handoff_owner": "36-minute Windows/local lane",
-  "next_action": "24-minute 3D lane: re-run authenticated live metadata and real ZIP/EXE/PCK/MSIX byte verifier against this refreshed snapshot; 36-minute Windows lane: independently authenticate existing Partner Center product and seven Identity fields, CAS bind new source/request and approve package version before signed post-Identity MSIX. No duplicate product, no Store submit."
+  "next_action": "24-minute 3D lane: execute live GitHub metadata and real ZIP/EXE/PCK/MSIX byte verifier on newly refreshed snapshot, record run result; 36-minute Windows lane: independently authenticate existing Partner Center product and all seven Identity fields, CAS bind new source/request, approve package version before signed post-Identity MSIX. Never create duplicate product, never submit Store."
 }
