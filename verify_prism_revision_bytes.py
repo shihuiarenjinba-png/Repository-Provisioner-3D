@@ -11,6 +11,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import zipfile
+from xml.etree import ElementTree
 
 from prism_revision_handoff_contract import (
     PINNED_SENTINEL_SOURCE_SHA, RevisionHandoffError,
@@ -87,6 +88,34 @@ def _check_member(archive, name, expected_sha, expected_bytes, magic):
         raise RevisionHandoffError("payload magic/SHA mismatch")
 
 
+
+def _verify_unsigned_qa_fixture_manifest(archive):
+    """Confirm the unsigned MSIX is a QA fixture, never the Prism Store identity."""
+    name = "AppxManifest.xml"
+    if name not in archive.namelist() or archive.getinfo(name).file_size > 65536:
+        raise RevisionHandoffError("missing or oversized unsigned QA manifest")
+    try:
+        root = ElementTree.fromstring(archive.read(name))
+    except ElementTree.ParseError as exc:
+        raise RevisionHandoffError("malformed unsigned QA manifest") from exc
+    ns = "http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+    rescap = "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+    if root.tag != f"{{{ns}}}Package":
+        raise RevisionHandoffError("wrong unsigned QA manifest namespace")
+    identity = root.find(f"{{{ns}}}Identity")
+    application = root.find(f"{{{ns}}}Applications/{{{ns}}}Application")
+    capability = root.find(f"{{{ns}}}Capabilities/{{{rescap}}}Capability")
+    if (identity is None or identity.get("Name") != "Example.ThreeD.Fixture"
+            or identity.get("Publisher") != "CN=Offline QA Fixture"
+            or identity.get("ProcessorArchitecture") != "x64"
+            or application is None
+            or application.get("Executable") != r"Game\game.exe"
+            or application.get("EntryPoint") != "Windows.FullTrustApplication"
+            or capability is None or capability.get("Name") != "runFullTrust"):
+        raise RevisionHandoffError("unsigned QA fixture manifest mismatch")
+    return True
+
+
 def verify_payload_bytes(handoff, fetch_zip, *, now=None):
     """Verify real ZIP bytes and inner payload, without granting authorization."""
     validate_revision_handoff(handoff, now=now)
@@ -150,14 +179,15 @@ def verify_payload_bytes(handoff, fetch_zip, *, now=None):
                 _check_member(msix, f"Game/game.{kind}",
                               record[f"{kind}_sha256"],
                               record[f"{kind}_size_bytes"], magic)
-            if "AppxManifest.xml" not in msix.namelist():
-                raise RevisionHandoffError("MSIX missing manifest")
+            _verify_unsigned_qa_fixture_manifest(msix)
     return {
         "status": "FACTORY_AND_UNSIGNED_MSIX_BYTES_CORRELATED_HOLD_IDENTITY",
         "source_sha": source,
         "request_id": handoff["request_id"],
         "artifact_zip_bytes_verified": True,
         "inner_exe_pck_msix_verified": True,
+        "unsigned_qa_fixture_identity_detected": True,
+        "product_identity_verified": False,
         "official_identity_cas_verified": False,
         "signature_verified": False,
         "windows_all_auto_intake_verified": False,
