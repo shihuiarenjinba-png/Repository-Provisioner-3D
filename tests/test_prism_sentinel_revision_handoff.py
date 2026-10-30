@@ -77,7 +77,11 @@ class PrismSentinelRevisionHandoffTests(unittest.TestCase):
         self.assertFalse(evidence["unsigned_makeappx"]["store_ready"])
         self.assertTrue(evidence["independent_pck_diagnostic"]["diagnostic_only"])
         self.assertTrue(evidence["independent_pck_diagnostic"]["not_store_payload"])
-        self.assertIn("not EXE/PCK/MSIX payload hashes", h["evidence_observation_scope"])
+        # Archive digests are ZIP transport metadata, not inner EXE/PCK/MSIX hashes.
+        # Assert the machine-readable evidence shape rather than prose wording.
+        for item in evidence.values():
+            for payload_key in ("payload_sha256", "exe_sha256", "pck_sha256", "msix_sha256"):
+                self.assertNotIn(payload_key, item)
         # PRE and unsigned MakeAppx must be observations of the same
         # Provisioner commit; an old or unrelated CI result cannot be
         # presented as proof for this gameplay revision.
