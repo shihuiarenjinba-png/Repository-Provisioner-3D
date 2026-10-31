@@ -14,6 +14,8 @@ on:
       - verify_prism_revision_live.py
       - tests/test_verify_prism_revision_live.py
       - verify_prism_revision_bytes.py
+      - godot_pck_diff.py
+      - tests/test_godot_pck_diff.py
       - tests/test_verify_prism_revision_bytes.py
       - tests/test_prism_revision_handoff_runtime.py
       - handoffs/prism-route-3d-sentinel-revision-20261029.json
@@ -169,6 +171,42 @@ jobs:
           assert result['github_return']['status']=='NOT_APPLIED'
           print('PASS: real revision Factory->Provisioner PRE byte correlation; no Store package claim')
           PY
+      - name: Diagnose Factory vs independent local Godot PCK members (HOLD-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          result=json.loads(Path('revision-result.json').read_text())
+          evidence=result.get('factory_export_evidence') or {}
+          assert result['status']=='HOLD'
+          assert evidence.get('status')=='PRE_IDENTITY_BYTES_CORRELATED'
+          assert evidence.get('payload_authority')=='AUTHENTICATED_FACTORY_ARTIFACT'
+          canonical=Path(evidence['canonical_package_path']).resolve(strict=True)
+          assert canonical.name=='candidate.exe'
+          assert canonical.parent.name=='authenticated-factory-payload'
+          assert canonical.parent.parent.name=='factory-evidence'
+          root=canonical.parent.parent.parent
+          factory=canonical.with_suffix('.pck')
+          local=(root/'artifacts'/'candidate.pck').resolve(strict=True)
+          assert factory.is_file() and local.is_file()
+          subprocess.run([sys.executable,'godot_pck_diff.py',
+            '--factory',str(factory),'--local',str(local),
+            '--output','revision-pck-diagnostic.json'],check=True)
+          report=json.loads(Path('revision-pck-diagnostic.json').read_text())
+          assert report['diagnostic_status'] in (
+            'BYTE_IDENTICAL','MEMBERS_IDENTICAL_CONTAINER_DIFF',
+            'MEMBER_CONTENT_DIFF','INSPECTION_UNAVAILABLE')
+          assert report['reproducible_export_approved'] is False
+          assert report['official_identity_cas_verified'] is False
+          assert report['store_submission_allowed'] is False
+          assert report['product_e2e']=='HOLD'
+          print('PCK_DIAGNOSTIC_STATUS='+report['diagnostic_status'])
+          print('PCK_CHANGED_MEMBERS='+str(report.get('changed_count','UNKNOWN')))
+          PY
       - name: Check existing Identity is old-source provenance, not revision approval
         shell: bash
         run: |
@@ -208,5 +246,6 @@ jobs:
             revision-job.json
             revision-result.json
             revision-pre-receipt.json
+            revision-pck-diagnostic.json
           if-no-files-found: warn
           retention-days: 7
