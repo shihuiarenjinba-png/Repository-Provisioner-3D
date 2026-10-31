@@ -72,7 +72,9 @@ def inventory_pck(path: Path) -> dict:
             member_flags = struct.unpack("<I", _read_exact(stream, 4))[0]
             if member_flags:
                 raise ValueError("encrypted/removed/unknown PCK member flags")
-            absolute = offset + (base if flags & 2 else 0)
+            # Godot adds file_base for v2 even when PACK_REL_FILEBASE is unset.
+            # The flag controls adjustment for an embedded pack's start offset.
+            absolute = offset + base
             if absolute > total or size > total - absolute:
                 raise ValueError("PCK member payload outside file")
             entries.append((name, absolute, size, expected_md5))
