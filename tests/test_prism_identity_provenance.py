@@ -80,6 +80,24 @@ class HistoricalIdentityTests(unittest.TestCase):
         item["package_sha256"] = item["local_package_sha256"] = "b" * 64
         with self.assertRaises(HistoricalIdentityError): inspect_historical_identity(item)
 
+    def test_reject_injected_revision_approval_claims(self):
+        for field in (
+            "new_revision_cas_verified", "official_identity_cas_verified",
+            "signed_msix_verified", "windows_all_auto_intake_verified",
+            "store_submission_allowed", "product_e2e",
+        ):
+            with self.subTest(field=field):
+                item = sample()
+                item[field] = True if field != "product_e2e" else "PASS"
+                with self.assertRaises(HistoricalIdentityError):
+                    inspect_historical_identity(item)
+
+    def test_reject_injected_approved_package_version(self):
+        item = sample()
+        item["approved_package_version"] = "1.0.0.0"
+        with self.assertRaises(HistoricalIdentityError):
+            inspect_historical_identity(item)
+
     def test_reject_duplicate_keys(self):
         with self.assertRaises(HistoricalIdentityError): load_record('{"source_sha":"a","source_sha":"b"}')
 
