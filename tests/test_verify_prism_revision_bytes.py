@@ -130,6 +130,27 @@ class PrismRevisionByteTests(unittest.TestCase):
         self.assertIs(result["store_submission_allowed"], False)
         self.assertIs(result["artifact_zip_bytes_verified"], False)
 
+    def test_duplicate_factory_evidence_key_rejected_with_updated_zip_digest(self):
+        h, blobs = self.fixture()
+        key = (FACTORY_REPO, h["evidence"]["factory"]["artifact_id"])
+        with zipfile.ZipFile(BytesIO(blobs[key])) as archive:
+            entries = {name: archive.read(name) for name in archive.namelist()}
+        raw = entries["export-evidence.json"]
+        entries["export-evidence.json"] = b'{"source_sha":"forged",' + raw[1:]
+        blobs[key] = pack(entries)
+        h["evidence"]["factory"]["archive_bytes"] = len(blobs[key])
+        h["evidence"]["factory"]["archive_digest"] = (
+            "sha256:" + hashlib.sha256(blobs[key]).hexdigest())
+        with self.assertRaisesRegex(RevisionHandoffError, "duplicate evidence JSON key"):
+            self.verify(h, blobs)
+
+    def test_duplicate_nested_qa_evidence_key_rejected(self):
+        from verify_prism_revision_bytes import _json_entry
+        ambiguous = b'{"outer":{"approved":false,"approved":true}}'
+        with _safe_zip(pack({"evidence.json": ambiguous})) as archive:
+            with self.assertRaisesRegex(RevisionHandoffError, "duplicate evidence JSON key"):
+                _json_entry(archive, "evidence.json")
+
     def test_zip_byte_tamper_rejected(self):
         h, blobs = self.fixture()
         key = (FACTORY_REPO, h["evidence"]["factory"]["artifact_id"])
