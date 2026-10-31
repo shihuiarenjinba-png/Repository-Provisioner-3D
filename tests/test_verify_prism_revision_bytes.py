@@ -107,6 +107,29 @@ class PrismRevisionByteTests(unittest.TestCase):
         self.assertFalse(result["store_submission_allowed"])
         self.assertFalse(result["signature_verified"])
 
+    def test_cli_revision_rejection_is_structured_hold(self):
+        """An invalid live handoff must fail closed without a traceback."""
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from tempfile import TemporaryDirectory
+        from unittest.mock import patch
+        from verify_prism_revision_bytes import main
+
+        with TemporaryDirectory() as temp_dir:
+            handoff_path = Path(temp_dir) / "handoff.json"
+            handoff_path.write_text("{}", encoding="utf-8")
+            output = StringIO()
+            with patch("verify_prism_revision_bytes.verify_github_metadata",
+                       side_effect=RevisionHandoffError("untrusted revision")):
+                with redirect_stdout(output):
+                    exit_code = main(["--handoff", str(handoff_path)])
+        self.assertEqual(exit_code, 2)
+        result = json.loads(output.getvalue())
+        self.assertEqual(result["status"], "HOLD")
+        self.assertEqual(result["reason"], "RevisionHandoffError")
+        self.assertIs(result["store_submission_allowed"], False)
+        self.assertIs(result["artifact_zip_bytes_verified"], False)
+
     def test_zip_byte_tamper_rejected(self):
         h, blobs = self.fixture()
         key = (FACTORY_REPO, h["evidence"]["factory"]["artifact_id"])
