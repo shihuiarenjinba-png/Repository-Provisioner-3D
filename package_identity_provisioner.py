@@ -33,9 +33,21 @@ REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{3,127}$")
 VERSION = re.compile(r"^\d{1,5}(?:\.\d{1,5}){3}$")
 STORE_ID = re.compile(r"^[A-Za-z0-9]{8,32}$")
 IDENTITY_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{2,49}$")
+PACKAGE_FAMILY_NAME = re.compile(r"^[A-Za-z0-9._-]+_[a-z0-9]{13}$")
+PACKAGE_SID = re.compile(r"^S-1-15-2(?:-\d+){7}$")
 ALLOWED_ACTIONS = {"BUILD_WINDOWS", "INSPECT_PACKAGE", "LOOKUP_OFFICIAL_IDENTITY", "PROPOSE_GITHUB_RETURN"}
 FINAL_STATUSES = {"COMPLETED", "DRY_RUN", "CONFLICT"}
 TRANSIENT_HTTP = {429, 500, 502, 503, 504}
+
+
+def valid_work_branch(value: Any) -> bool:
+    if not isinstance(value, str) or not 7 <= len(value) <= 240 or not value.startswith("codex/"):
+        return False
+    if not re.fullmatch(r"codex/[A-Za-z0-9._/-]+", value):
+        return False
+    if ".." in value or "//" in value or "@{" in value or value.endswith(("/", ".")):
+        return False
+    return all(part and not part.startswith(".") and not part.endswith(".lock") for part in value.split("/"))
 
 
 class ProvisionerError(Exception):
@@ -145,10 +157,12 @@ class Job:
         if raw["product_type"] != config.product_type:
             raise HoldError("Product type belongs to a different Provisioner")
         exact = {"source_factory": config.source_factory, "source_repository": config.source_repository,
-                 "source_branch": config.source_branch, "target_owner": config.target_owner}
+                 "target_owner": config.target_owner}
         for field, expected in exact.items():
             if raw[field] != expected:
                 raise HoldError(f"{field} is not the configured allowlisted value")
+        if not valid_work_branch(raw["source_branch"]):
+            raise HoldError("source_branch must be a safe codex/* work branch")
         if not isinstance(raw["source_sha"], str) or not SHA40.fullmatch(raw["source_sha"]) or set(raw["source_sha"]) == {"0"}:
             raise HoldError("source_sha must be an exact non-placeholder lowercase Git SHA")
         if not isinstance(raw["slug"], str) or not SLUG.fullmatch(raw["slug"]):
@@ -242,10 +256,41 @@ class SourceManager:
             destination.parent.mkdir(parents=True, exist_ok=True)
             self._run(["git", "clone", "--filter=blob:none", "--no-checkout",
                        f"https://github.com/{job.source_repository}.git", str(destination)], 180)
-        remote = self._run(["git", "ls-remote", "origin", f"refs/heads/{job.source_branch}"], 60, destination).strip().split()
-        if not remote or remote[0] != job.source_sha:
-            raise ConflictError("Factory work branch HEAD does not match source_sha")
-        self._run(["git", "fetch", "--depth=1", "origin", job.source_sha], 180, destination)
+        branch_ref = f"refs/heads/{job.source_branch}"
+        remote = self._run(["git", "ls-remote", "origin", branch_ref], 60, destination).strip().split()
+        if len(remote) != 2 or not SHA40.fullmatch(remote[0]) or remote[1] != branch_ref:
+            raise ConflictError("Factory work branch HEAD cannot be authenticated")
+        remote_head = remote[0]
+        if remote_head != job.source_sha:
+            # Narrow, evidence-backed exception: this *single* pinned Canary
+            # has a later Identity reference commit on its source branch.
+            # Never use that later commit as product source or CAS approval.
+            if not (
+                job.product_type == "GAME_3D"
+                and job.slug == "prism-route-3d"
+                and job.source_repository == "shihuiarenjinba-png/3d-game-factory"
+                and job.source_branch == "codex/3d-canary-prism-route-20261028"
+                and job.source_sha == "15fdcb52e46e35e6de8e87c55af99719c21e09b9"
+            ):
+                raise ConflictError("Factory work branch HEAD does not match source_sha")
+            self._run(["git", "fetch", "--depth=64", "origin", remote_head], 180, destination)
+            self._run(["git", "fetch", "--depth=64", "origin", job.source_sha], 180, destination)
+            try:
+                base = self._run(["git", "merge-base", job.source_sha, remote_head], 60, destination).strip()
+                count = self._run(["git", "rev-list", "--count",
+                                   f"{job.source_sha}..{remote_head}"], 60, destination).strip()
+                changed = self._run(["git", "diff", "--name-status", "--no-renames",
+                                     job.source_sha, remote_head, "--"], 60, destination).strip()
+            except ProvisionerError as exc:
+                raise ConflictError("Cannot prove Identity-only source branch drift") from exc
+            identity_path = "products/prism-route-3d/store/approved-identity.json"
+            if base != job.source_sha or count != "1" or changed != f"A\t{identity_path}":
+                raise ConflictError("Factory source branch drift is not exactly one Identity-only commit")
+            reread = self._run(["git", "ls-remote", "origin", branch_ref], 60, destination).strip().split()
+            if len(reread) != 2 or reread[0] != remote_head or reread[1] != branch_ref:
+                raise ConflictError("Factory source branch HEAD changed during provenance check")
+        else:
+            self._run(["git", "fetch", "--depth=1", "origin", job.source_sha], 180, destination)
         self._run(["git", "checkout", "--detach", job.source_sha], 60, destination)
         if self._run(["git", "rev-parse", "HEAD"], 30, destination).strip() != job.source_sha:
             raise ConflictError("Detached checkout does not match source_sha")
@@ -281,7 +326,9 @@ class PackageBuilder:
             if not project_root.resolve().is_relative_to(source.resolve()):
                 raise HoldError("3D product path escapes the pinned Factory checkout")
             self._build_godot(project_root, output_dir)
-            candidates = self._candidates(output_dir, config)
+            # Only the exact export target is eligible for 3D pre-MSIX evidence.
+            # A reused output directory may contain unrelated/stale executables.
+            candidates = [output_dir / "candidate.exe"]
         else:
             before = {p.resolve(): (p.stat().st_mtime_ns, p.stat().st_size)
                       for p in self._candidates(source, config) if p.is_file()}
@@ -306,13 +353,19 @@ class PackageBuilder:
             path = source / relative
             if not path.is_file():
                 continue
-            command = (["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(path)]
+            powershell = shutil.which("pwsh") or shutil.which("powershell") or "powershell"
+            command = ([powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(path)]
                        if path.suffix.lower() == ".ps1" else ["cmd", "/d", "/c", str(path)])
             self._run(command, source, 1800)
             return
         raise HoldError("No allowlisted Windows build entrypoint exists in the pinned source")
 
     def _build_godot(self, source: Path, output_dir: Path) -> None:
+        # SourceManager may return a relative work path. Godot resolves --path
+        # relative to the subprocess cwd, so passing that relative path twice
+        # incorrectly points outside the project. Pin both to absolute paths.
+        source = source.resolve(strict=True)
+        output_dir = output_dir.resolve(strict=False)
         project, presets = source / "project.godot", source / "export_presets.cfg"
         if project.is_symlink() or presets.is_symlink():
             raise HoldError("Godot project or export preset is symlinked")
@@ -327,9 +380,23 @@ class PackageBuilder:
         if not executable:
             raise HoldError("Godot executable is not configured (GODOT_EXE)")
         target = output_dir / "candidate.exe"
+        # Retries reuse the same request workspace. Never let an old EXE/PCK
+        # satisfy a new export that returned success without writing payloads.
+        for stale in (target, target.with_suffix(".pck")):
+            if stale.is_symlink() or stale.is_file():
+                stale.unlink()
+            elif stale.exists():
+                raise HoldError("Godot export target is not a regular file")
+        # Match Factory's real Godot 4.3 import-before-export sequence.
+        # Without this, a fresh Provisioner clone can produce a different PCK
+        # even when request_id and immutable source_sha are identical.
+        self._run([executable, "--headless", "--editor", "--path", str(source), "--import"], source, 1800)
         self._run([executable, "--headless", "--path", str(source), "--export-release", "Windows Desktop", str(target)], source, 1800)
         if target.is_symlink() or not target.is_file() or target.stat().st_size == 0:
             raise HoldError("Godot Windows export produced no nonempty executable")
+        # Validate the PE32+ x64 structure before trusting the Godot export.
+        # This is static byte QA, not Windows launch/GPU/GUI verification.
+        _validate_godot_windows_pe_x64(target)
         # Godot's Windows Desktop export may place game data in a separate
         # candidate.pck. Accepting only candidate.exe silently loses resources
         # when binary_format/embed_pck=false.
@@ -339,8 +406,11 @@ class PackageBuilder:
             raise HoldError("Cannot read Godot Windows export preset") from exc
         if re.search(r"(?m)^\s*binary_format/embed_pck\s*=\s*false\s*$", preset_text):
             pck = target.with_suffix(".pck")
-            if pck.is_symlink() or not pck.is_file() or pck.stat().st_size == 0:
+            if pck.is_symlink() or not pck.is_file() or pck.stat().st_size < 4:
                 raise HoldError("Godot Windows export omitted required candidate.pck payload")
+            with pck.open("rb") as handle:
+                if handle.read(4) != b"GDPC":
+                    raise HoldError("Godot Windows export PCK has invalid GDPC header")
 
     @staticmethod
     def _run(command: list[str], cwd: Path, timeout: int) -> None:
@@ -401,7 +471,8 @@ def signature_status(path: Path) -> str:
     if os.name != "nt":
         return "UNAVAILABLE_NON_WINDOWS"
     escaped = str(path).replace("'", "''")
-    command = ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+    powershell = shutil.which("pwsh") or shutil.which("powershell") or "powershell"
+    command = [powershell, "-NoProfile", "-NonInteractive", "-Command",
                f"(Get-AuthenticodeSignature -LiteralPath '{escaped}').Status.ToString()"]
     try:
         result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", timeout=30, check=False)
@@ -410,7 +481,53 @@ def signature_status(path: Path) -> str:
     return result.stdout.strip().upper() if result.returncode == 0 and result.stdout.strip() else "INSPECTION_FAILED"
 
 
-def inspect_package(path: Path) -> dict[str, Any]:
+def _validate_godot_windows_pe_x64(path: Path) -> None:
+    """Reject MZ-only, truncated, non-x64 or non-PE32+ Godot export files.
+
+    Bounds and COFF/optional-header checks are static format checks only.
+    A valid PE header is not evidence of a runnable or safe product.
+    """
+    size = path.stat().st_size
+    with path.open("rb") as handle:
+        dos = handle.read(64)
+        if dos[:2] != b"MZ":
+            raise HoldError("Godot Windows export EXE is missing the MZ header")
+        if len(dos) < 64:
+            raise HoldError("Godot Windows export has a truncated DOS header")
+        pe_offset = int.from_bytes(dos[0x3c:0x40], "little")
+        if pe_offset < 64 or pe_offset > 1024 * 1024 or pe_offset + 26 > size:
+            raise HoldError("Godot Windows export has an invalid PE offset")
+        handle.seek(pe_offset)
+        pe = handle.read(26)
+        if pe[:4] != b"PE\x00\x00":
+            raise HoldError("Godot Windows export has an invalid PE signature")
+        machine = int.from_bytes(pe[4:6], "little")
+        sections = int.from_bytes(pe[6:8], "little")
+        optional_size = int.from_bytes(pe[20:22], "little")
+        if machine != 0x8664:
+            raise HoldError("Godot Windows export PE machine is not x64")
+        if not 1 <= sections <= 96:
+            raise HoldError("Godot Windows export has invalid PE section count")
+        if optional_size < 0x70 or pe[24:26] != b"\x0b\x02":
+            raise HoldError("Godot Windows export is not PE32+")
+        if pe_offset + 24 + optional_size + sections * 40 > size:
+            raise HoldError("Godot Windows export has a truncated PE section table")
+        # A valid COFF table is insufficient if its sections reference bytes
+        # beyond the end of the file. Do not accept phantom raw payloads.
+        section_table = pe_offset + 24 + optional_size
+        handle.seek(section_table)
+        for _ in range(sections):
+            section = handle.read(40)
+            if len(section) != 40:
+                raise HoldError("Godot Windows export has a truncated PE section")
+            raw_size = int.from_bytes(section[16:20], "little")
+            raw_pointer = int.from_bytes(section[20:24], "little")
+            if raw_size and (not raw_pointer or raw_pointer > size
+                             or raw_size > size - raw_pointer):
+                raise HoldError("Godot Windows export PE section raw data is outside the file")
+
+
+def inspect_package(path: Path, *, godot_export: bool = False) -> dict[str, Any]:
     if not path.is_file():
         raise HoldError("Package artifact does not exist")
     digest = hashlib.sha256()
@@ -423,6 +540,31 @@ def inspect_package(path: Path) -> dict[str, Any]:
         "signature_status": signature_status(path), "package_identity": None, "publisher": None,
         "version": None, "package_family_name": None, "package_sid": None,
     }
+    if godot_export:
+        if path.suffix.lower() != ".exe" or path.is_symlink():
+            raise HoldError("Godot export evidence must be a regular Windows EXE")
+        _validate_godot_windows_pe_x64(path)
+        pck = path.with_suffix(".pck")
+        if pck.is_symlink() or (pck.exists() and not pck.is_file()):
+            raise HoldError("Godot external PCK evidence is not a regular file")
+        pck_sha256, pck_size_bytes = None, None
+        if pck.exists():
+            digest_pck = hashlib.sha256()
+            with pck.open("rb") as handle:
+                header = handle.read(4)
+                if header != b"GDPC":
+                    raise HoldError("Godot external PCK has invalid GDPC header")
+                digest_pck.update(header)
+                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest_pck.update(chunk)
+            pck_sha256 = digest_pck.hexdigest()
+            pck_size_bytes = pck.stat().st_size
+        result["godot_export"] = {
+            "exe_sha256": result["sha256"],
+            "external_pck_sha256": pck_sha256,
+            "external_pck_size_bytes": pck_size_bytes,
+            "evidence_scope": "LOCAL_EXPORT_NOT_INDEPENDENT",
+        }
     if path.suffix.lower() not in {".msix", ".appx"}:
         return result
     try:
@@ -479,9 +621,9 @@ class OfficialIdentityProvider:
             raise HoldError("Invalid official version")
         pfn = raw["package_family_name"]
         sid = raw["package_sid"]
-        if not isinstance(pfn, str) or not 3 <= len(pfn) <= 256 or any(ch.isspace() for ch in pfn):
+        if not isinstance(pfn, str) or not PACKAGE_FAMILY_NAME.fullmatch(pfn):
             raise HoldError("Invalid official Package Family Name")
-        if not isinstance(sid, str) or not sid.startswith("S-1-15-2-") or len(sid) > 512:
+        if not isinstance(sid, str) or not PACKAGE_SID.fullmatch(sid):
             raise HoldError("Invalid official Package SID")
         return raw
 
@@ -505,6 +647,8 @@ def compare_package_identity(package: dict[str, Any], official: dict[str, Any],
             return "DEFERRED_TO_FACTORY_MSIX"
         raise HoldError("Official Identity requires MSIX/AppX for this product type")
     checks = (("package_identity", "name"), ("publisher", "publisher"), ("version", "version"))
+    if os.name == "nt" and (not package.get("package_family_name") or not package.get("package_sid")):
+        raise HoldError("Windows package PFN or Package SID could not be collected")
     mismatches = [f"{left}!={right}" for left, right in checks if package.get(left) != official.get(right)]
     if package.get("package_family_name") and package.get("package_family_name") != official.get("package_family_name"):
         mismatches.append("package_family_name!=official")
@@ -517,7 +661,7 @@ def compare_package_identity(package: dict[str, Any], official: dict[str, Any],
 
 def windows_all_auto_record(job: Job, official: dict[str, Any],
                             package: dict[str, Any]) -> dict[str, Any]:
-    return {
+    record = {
         "schema_version": 1,
         "type": {"APP": "app", "GAME": "game", "GAME_3D": "3d-game"}[job.product_type],
         "request_id": job.request_id,
@@ -528,6 +672,10 @@ def windows_all_auto_record(job: Job, official: dict[str, Any],
         "source_sha": job.source_sha,
         "slug": job.slug,
         "expected_head_sha": job.source_sha,
+        "package_sha256": package["sha256"],
+        "package_family_name": official["package_family_name"],
+        "package_sid": official["package_sid"],
+        "signature_status": package["signature_status"],
         "local_package_sha256": package["sha256"],
         "local_package_kind": package["kind"],
         "local_signature_status": package["signature_status"],
@@ -538,6 +686,32 @@ def windows_all_auto_record(job: Job, official: dict[str, Any],
                      ("store_id", "name", "publisher", "version",
                       "package_family_name", "package_sid")},
     }
+
+    # GAME_3D has two distinct package stages. Even an inspected MSIX is
+    # not an intake-ready product until an independent Identity CAS receipt,
+    # approved manifest version, signature verification and MSIX safety QA.
+    # In particular, an EXE digest must never become a final MSIX digest.
+    if job.product_type == "GAME_3D":
+        kind = package.get("kind")
+        record.update(
+            package_sha256=None,
+            package_sha256_kind="POST_IDENTITY_MSIX_ONLY",
+            pre_identity_exe_sha256=package["sha256"] if kind == "exe" else None,
+            msix_package_sha256=package["sha256"] if kind == "msix" else None,
+            post_identity_msix_version=package.get("version") if kind == "msix" else None,
+            package_version_gate="HOLD_NO_APPROVED_POST_IDENTITY_VERSION",
+            post_identity_version_approval_receipt=None,
+            post_identity_msix_qa_receipt=None,
+            post_identity_signature_verification_receipt=None,
+            signature_status=("NOT_APPLICABLE_PRE_MSIX" if kind == "exe"
+                              else package["signature_status"]),
+            intake_status=("HOLD_PRE_MSIX" if kind == "exe"
+                           else "HOLD_CAS_VERSION_SIGNATURE_QA" if kind == "msix"
+                           else "HOLD_UNSUPPORTED_3D_PACKAGE_KIND"),
+            store_ready=False,
+            identity_cas_receipt=None,
+        )
+    return record
 
 
 class GitHubReturnClient:
@@ -550,20 +724,20 @@ class GitHubReturnClient:
                         package: dict[str, Any], apply: bool) -> dict[str, Any]:
         target_path = f"products/{job.slug}/store/approved-identity.json"
         base = f"repos/{config.source_repository}/"
-        proposal = {"status": "NOT_APPLIED", "repository": config.source_repository, "branch": config.source_branch,
+        proposal = {"status": "NOT_APPLIED", "repository": config.source_repository, "branch": job.source_branch,
                     "path": target_path, "commit_sha": None, "commit_url": None}
         if not apply:
             return proposal
-        ref = self.api(base + "git/ref/heads/" + config.source_branch)
+        ref = self.api(base + "git/ref/heads/" + job.source_branch)
         if not isinstance(ref, dict) or ref.get("object", {}).get("sha") != job.source_sha:
             raise ConflictError("Factory HEAD changed before identity return")
         self._verify_product(base, job, config)
-        existing = self.api(base + "contents/" + target_path + "?ref=" + quote(config.source_branch, safe=""), allow_missing=True)
+        existing = self.api(base + "contents/" + target_path + "?ref=" + quote(job.source_branch, safe=""), allow_missing=True)
         if existing is not None:
             if self._existing_matches(existing, official, job, package):
                 # GitHub Contents API 'sha' is a *blob* SHA, not a commit SHA.
                 # Recheck the branch because no atomic mutation guards this read.
-                latest_ref = self.api(base + "git/ref/heads/" + config.source_branch)
+                latest_ref = self.api(base + "git/ref/heads/" + job.source_branch)
                 if (not isinstance(latest_ref, dict)
                         or latest_ref.get("object", {}).get("sha") != job.source_sha):
                     raise ConflictError("Factory HEAD changed while verifying existing identity")
@@ -581,13 +755,16 @@ class GitHubReturnClient:
                     "verified_by": official["authenticated_account"],
                     "evidence_url": official["official_evidence_url"],
                     "verified_source_sha": job.source_sha,
+                    "source_sha": job.source_sha,
                     "expected_head_sha": job.source_sha,
+                    "package_sha256": package["sha256"],
+                    "signature_status": package["signature_status"],
                     "local_package_sha256": package["sha256"],
                     "local_package_kind": package["kind"],
                     "local_signature_status": package["signature_status"]}
         content = json.dumps(approved, ensure_ascii=False, indent=2) + "\n"
         body = {"query": self.MUTATION, "variables": {"input": {
-            "branch": {"repositoryNameWithOwner": config.source_repository, "branchName": config.source_branch},
+            "branch": {"repositoryNameWithOwner": config.source_repository, "branchName": job.source_branch},
             "message": {"headline": "store: return verified Partner Center identity for " + job.slug},
             "expectedHeadOid": job.source_sha,
             "fileChanges": {"additions": [{"path": target_path,
@@ -601,7 +778,7 @@ class GitHubReturnClient:
         return {**proposal, "status": "APPLIED", "commit_sha": commit["oid"], "commit_url": commit.get("url")}
 
     def _verify_product(self, base: str, job: Job, config: ProductConfig) -> None:
-        branch = quote(config.source_branch, safe="")
+        branch = quote(job.source_branch, safe="")
         if config.product_type == "GAME_3D":
             item = self.api(base + f"contents/products/{job.slug}/project.godot?ref=" + branch)
             if b"run/main_scene" not in self._decode_content(item, 128_000):
@@ -668,7 +845,10 @@ class GitHubReturnClient:
             "verified_by": official.get("authenticated_account"),
             "evidence_url": official.get("official_evidence_url"),
             "verified_source_sha": job.source_sha,
+            "source_sha": job.source_sha,
             "expected_head_sha": job.source_sha,
+            "package_sha256": package.get("sha256"),
+            "signature_status": package.get("signature_status"),
             "local_package_sha256": package.get("sha256"),
             "local_package_kind": package.get("kind"),
             "local_signature_status": package.get("signature_status"),
@@ -713,14 +893,17 @@ class GitHubReturnClient:
 class Provisioner:
     def __init__(self, config: ProductConfig, state_dir: Path, work_dir: Path,
                  source: SourceManager | None = None, builder: PackageBuilder | None = None,
-                 identity: OfficialIdentityProvider | None = None, github: GitHubReturnClient | None = None):
+                 identity: OfficialIdentityProvider | None = None, github: GitHubReturnClient | None = None,
+                 factory_transport: Any | None = None):
         self.config = config
         self.ledger = Ledger(state_dir / config.product_type.lower())
         self.work_dir = work_dir / config.product_type.lower()
         self.source, self.builder = source or SourceManager(), builder or PackageBuilder()
         self.identity, self.github = identity or OfficialIdentityProvider(None), github or GitHubReturnClient()
+        self.factory_transport = factory_transport
 
-    def run(self, raw: dict[str, Any], apply: bool = False) -> dict[str, Any]:
+    def run(self, raw: dict[str, Any], apply: bool = False, *,
+            factory_run_id: int | None = None, factory_artifact_id: int | None = None) -> dict[str, Any]:
         started = utc_now()
         try:
             job = Job.validate(raw, self.config)
@@ -738,17 +921,42 @@ class Provisioner:
                     response["next_stage"] = "SUBMIT_NON_DRY_RUN_AFTER_REVIEW"
                     self._save(job, response, {"stage": "DRY_RUN_VALIDATED"})
                     return response
+                package: dict[str, Any] | None = None
+                factory_evidence: dict[str, Any] | None = None
                 try:
                     root = self.work_dir / hashlib.sha256(job.request_id.encode()).hexdigest()[:16]
                     source_dir = self.source.acquire(job, root / "source")
-                    package = inspect_package(self.builder.build(job, source_dir, root / "artifacts", self.config))
+                    built_path = self.builder.build(job, source_dir, root / "artifacts", self.config)
+                    package = inspect_package(
+                        built_path,
+                        godot_export=(job.product_type == "GAME_3D" and built_path.suffix.lower() == ".exe"),
+                    )
+                    if job.product_type == "GAME_3D" and package.get("kind") == "exe":
+                        # Fail closed before official Identity: only authenticated
+                        # GitHub run + artifact metadata may establish provenance.
+                        if self.factory_transport is None:
+                            from factory_export_transport import FactoryExportTransport
+                            self.factory_transport = FactoryExportTransport()
+                        factory_evidence = self.factory_transport.verify(
+                            job, package, run_id=factory_run_id,
+                            artifact_id=factory_artifact_id, work_root=root / "factory-evidence")
+                        if (factory_evidence.get("status") != "PRE_IDENTITY_BYTES_CORRELATED"
+                                or factory_evidence.get("payload_authority") != "AUTHENTICATED_FACTORY_ARTIFACT"
+                                or not isinstance(factory_evidence.get("canonical_package_path"), str)):
+                            raise HoldError("Factory export evidence HOLD: canonical payload not verified")
+                        package = inspect_package(
+                            Path(factory_evidence["canonical_package_path"]), godot_export=True)
+                        if (package["sha256"] != factory_evidence["exe_sha256"]
+                                or package["godot_export"]["external_pck_sha256"]
+                                != factory_evidence["external_pck_sha256"]):
+                            raise HoldError("Factory export evidence HOLD: canonical payload changed after verification")
                     official = self.identity.lookup(job)
                     comparison = compare_package_identity(package, official, job.product_type)
                     contract = windows_all_auto_record(job, official, package)
                     returned = self.github.return_identity(job, self.config, official, package, apply=apply)
                     status = "COMPLETED" if returned["status"] in {"APPLIED", "EXISTING_VERIFIED"} else "HOLD"
                     response = self._base_response(job, status, started)
-                    response.update(package=package, official_identity={
+                    response.update(package=package, factory_export_evidence=factory_evidence, official_identity={
                         "status": "VERIFIED_OPERATOR_EXPORT",
                         "package_comparison": comparison,
                         **{k: official[k] for k in
@@ -762,9 +970,11 @@ class Provisioner:
                     self._save(job, response, {"stage": returned["status"], "package_sha256": package["sha256"]})
                     return response
                 except ProvisionerError as exc:
-                    return self._record_error(job, exc, started, previous)
+                    return self._record_error(job, exc, started, previous, package=package,
+                                              factory_evidence=factory_evidence)
                 except Exception as exc:
-                    return self._record_error(job, ProvisionerError(f"Unexpected local failure: {type(exc).__name__}"), started, previous)
+                    return self._record_error(job, ProvisionerError(f"Unexpected local failure: {type(exc).__name__}"), started, previous,
+                                              package=package, factory_evidence=factory_evidence)
         except ProvisionerError as exc:
             return self._error_response(raw, exc, started)
 
@@ -781,8 +991,9 @@ class Provisioner:
                                       "version": None, "package_family_name": None, "package_sid": None,
                                       "package_comparison": None, "official_evidence_url": None},
                 "github_return": {"status": "NOT_APPLIED", "repository": self.config.source_repository,
-                                  "branch": self.config.source_branch,
+                                  "branch": job.source_branch,
                                   "path": f"products/{job.slug}/store/approved-identity.json", "commit_sha": None},
+                "factory_export_evidence": None,
                 "windows_all_auto_record": None, "errors": [], "next_stage": None}
 
     def _error_response(self, raw: dict[str, Any], exc: ProvisionerError, started: str) -> dict[str, Any]:
@@ -799,8 +1010,16 @@ class Provisioner:
                 "started_at": started, "finished_at": utc_now(), "idempotent_replay": False}
 
     def _record_error(self, job: Job, exc: ProvisionerError, started: str,
-                      previous: dict[str, Any] | None) -> dict[str, Any]:
+                      previous: dict[str, Any] | None,
+                      package: dict[str, Any] | None = None,
+                      factory_evidence: dict[str, Any] | None = None) -> dict[str, Any]:
         response = self._base_response(job, exc.status, started)
+        if package is not None:
+            # Preserve local EXE/PCK byte evidence across an external Identity HOLD.
+            # This is inspection evidence, never an accepted product or E2E receipt.
+            response["package"] = package
+        if factory_evidence is not None:
+            response["factory_export_evidence"] = factory_evidence
         response["errors"], response["next_stage"] = [redact(str(exc))], exc.next_stage
         self._save(job, response, {"stage": exc.status}, attempts=int((previous or {}).get("attempts", 0)) + 1)
         return response
@@ -825,13 +1044,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--work-dir", type=Path, default=Path(".provisioner-work"))
     parser.add_argument("--official-identity", type=Path,
                         help="Operator export from an authenticated Partner Center session; never source-controlled")
+    parser.add_argument("--factory-run-id", type=int,
+                        help="Authenticated Factory Godot export GitHub Actions run ID (3D EXE only)")
+    parser.add_argument("--factory-artifact-id", type=int,
+                        help="Authenticated Factory export GitHub artifact ID (3D EXE only)")
     parser.add_argument("--apply", action="store_true", help="Atomically write to the configured Factory work branch")
     args = parser.parse_args(argv)
     started = utc_now()
     try:
         config, raw = ProductConfig.load(args.config), load_json(args.input)
         result = Provisioner(config, args.state_dir, args.work_dir,
-                             identity=OfficialIdentityProvider(args.official_identity)).run(raw, apply=args.apply)
+                             identity=OfficialIdentityProvider(args.official_identity)).run(
+                                 raw, apply=args.apply, factory_run_id=args.factory_run_id,
+                                 factory_artifact_id=args.factory_artifact_id)
     except ProvisionerError as exc:
         result = {"schema_version": SCHEMA_VERSION, "request_id": None, "product_type": None,
                   "status": exc.status, "errors": [redact(str(exc))], "started_at": started, "finished_at": utc_now()}

@@ -17,7 +17,7 @@ python provisioner.py --input job.json --output result.json `
   --official-identity C:\secure\partner-center-evidence.json --apply
 ```
 
-返却先は `shihuiarenjinba-png/3d-game-factory` の `codex/3d-real-msix-build-path-20261027`、`products/<slug>/store/approved-identity.json` に固定されています。入力・出力契約は `schemas/`、運用とHOLD項目は `docs/LOCAL_PROVISIONER_HANDOFF.md` を参照してください。
+返却先リポジトリは `shihuiarenjinba-png/3d-game-factory` に固定し、ブランチは入力 `source_branch` と同じ安全な `codex/*` 作業ブランチを使用します。`main`、`release`、不正なブランチ名は拒否します。返却パスは `products/<slug>/store/approved-identity.json` です。入力・出力契約は `schemas/`、運用とHOLD項目は `docs/LOCAL_PROVISIONER_HANDOFF.md` を参照してください。
 
 
 > Current 3D Factory route: `codex/3d-real-msix-build-path-20261027`. The
@@ -25,3 +25,20 @@ python provisioner.py --input job.json --output result.json `
 > together with the authenticated Partner Center evidence fields. This is
 > required by the Factory's fail-closed MSIX builder; Identity remains HOLD
 > without genuine operator-supplied evidence and an exact source HEAD.
+
+
+## 3D Factory export provenance gate (Identity 前)
+
+GAME_3D の `candidate.exe` を検査した場合、Identity 照会前に、独立した GitHub Actions 実行情報と Factory export Artifact ZIP の実バイトを検証します。これは実製品が Factory から生成された後の契約であり、現状の非製品 Godot/MakeAppx fixture を販売製品として承認するものではありません。
+
+```powershell
+gh auth status --hostname github.com
+python provisioner.py --input job.json --output result.json `
+  --factory-run-id <FACTORY_RUN_ID> `
+  --factory-artifact-id <FACTORY_ARTIFACT_ID> `
+  --official-identity C:\secure\partner-center-evidence.json
+```
+
+`--factory-run-id` と `--factory-artifact-id` は、受け入れ済み Factory 製品の実際の export run と `godot-3d-factory-export-evidence` Artifact を指定します。GitHub CLI `gh api` は認証済みの GitHub REST API から run と Artifact のメタデータを別々に取得し、Artifact ZIP をダウンロードします。検証器は ZIP の GitHub SHA-256 digest、run 成功状態、`request_id`・`slug`・不変の `source_sha`、別管理の `factory_build_head`、EXE/PCK サイズと SHA-256 を照合します。欠落・不一致・期限切れ・ダウンロード失敗時は **Identity 照会前に HOLD** です。
+
+Identity が未取得でも `factory_export_evidence` に `PRE_IDENTITY_BYTES_CORRELATED` 証拠を保持できます。ただしこの証拠は `POST_IDENTITY_READY`、実製品MSIX、GPU、Windows install、GUI、Store E2E の合格ではありません。120時間ゲートはユーザー承認の Prism Route 3D Canary 1本に限り解除済みです。2本目の3D製品生成は48分監督によるPRE_IDENTITY rotation確認まで禁止です。Partner Centerの製品存在報告は矛盾しており、公式照合前の重複作成は禁止です。

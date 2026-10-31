@@ -2,7 +2,33 @@
 
 更新日: 2026-10-27 (Asia/Tokyo)
 
-## 判定
+## 2026-10-28: Identity前のGodot export証拠（最新コード契約）
+
+- 外部PCK (`candidate.pck`) が必要なexportでは、存在・非symlink・`GDPC`ヘッダーを検査し、偽装したPCKを拒否する。
+- 3D EXEのローカル検査結果は `package.godot_export` に `exe_sha256`、`external_pck_sha256`、`external_pck_size_bytes` を記録する。外部PCKが無い場合は後二者を `null` とし、存在を推測しない。
+- `evidence_scope=LOCAL_EXPORT_NOT_INDEPENDENT` は重要な制限。これはProvisionerが観測したバイトのSHAであり、Factoryの独立したexport証拠との一致、真正性、製品受入、Store Identityを証明しない。
+- Identity未提供で `HOLD` になっても、成功したローカル検査の `package` 証拠はresultと再開台帳に保持する。ただし `windows_all_auto_record` は `null`、GitHub CASは未実施。これを実MSIXやE2E PASSに昇格させない。
+- 36分Windows担当は `request_id`、不変 `source_sha`、`source_branch`、`slug` とEXE/PCKハッシュを独立したFactory証拠と照合し、後段の `factory_build_head` は別SHAとして管理する。テンプレートfixtureをaccepted productとして扱わない。
+
+## 現行統合判定（旧スナップショットより優先）
+
+**HOLD — オフライン実装完了／ライブ作成未確認。** 監督台帳上のGAME_3D active productは`null`で、新規生成ゲートは閉じている。Godot実製品export、正式MSIX、認証済みPartner Center Identity、Factory CAS書戻し、Windows GPU/専用QAはいずれも未実施。Store提出は0件。
+
+- 統合元: `codex/3d-local-identity-provenance-20261027` / `a1727301eddd2966d5f9540ebc287055480c1758`
+- ローカル作業ブランチ: `codex/e2e-belt-connection-20261027`
+- 現行Draft PR: https://github.com/shihuiarenjinba-png/Repository-Provisioner-3D/pull/7
+- 自動テスト: **71件 / PASS 69 / FAIL 0 / SKIP 2**（Windows symlink権限制約）
+- 共通Schema正規化SHA-256: job `0fbdaf38d25563bf60f756fbf2dd03468517584fb7b05b1bf5f942bf27c1d599` / result `1264f0285283c77aceb2956d687ff3898657578b82ba37ff475a8565f8709310`
+- 変更概要: 動的で安全なFactory `codex/*` branch、7項目相関、SHA固定取得、Godot export allowlist、巨大ファイル防止、PFN/Package SID/署名/SHA-256、既存Identity完全照合、GraphQL CAS、PowerShell 7優先。
+- Git LFS/外部ストレージを想定し、完成ビルドや巨大生成物をリポジトリへ蓄積しない。
+
+### 起動・返却・次の一手
+
+`python provisioner.py --input job.json --output result.json`。Godot実行には`GODOT_EXE`を安全な環境設定で与える。公式証拠を明示する場合のみ`--official-identity <secure-local-path>`、レビュー後のCAS返却のみ`--apply`。返却先は検証済みFactory作業ブランチ上`products/<slug>/store/approved-identity.json`で、main/releaseは拒否する。
+
+3D active productと正確なrequest_id/source branch/source SHAが正式に指定されるまでHOLD。指定後はDRY_RUN→Godot Windows export/専用QA→公式Identity照合→CAS返却→Factory MSIX→Windows-all-auto 3D隔離キュー→Windows GPU QAの順で再開する。
+
+## 旧判定
 
 **HOLD: オフライン実装、モック検証、DRY_RUNは完了。実製品MSIX生成、Partner Center公式ID取得、Factoryへの実返却は未確認。** テストPASSだけを完成とは扱わない。
 
