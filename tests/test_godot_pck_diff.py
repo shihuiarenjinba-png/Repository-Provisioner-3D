@@ -64,8 +64,8 @@ class GodotPckDiffTests(unittest.TestCase):
 
     def test_scene_identifier_only_candidate_is_not_approval(self):
         name = "res://.godot/exported/123/main.scn"
-        make_pck(self.a, {name: b"header\\x00PackedScene_a5gy0\\x00tail"})
-        make_pck(self.b, {name: b"header\\x00PackedScene_uymax\\x00tail"})
+        make_pck(self.a, {name: b"header\x00PackedScene_a5gy0\x00tail"})
+        make_pck(self.b, {name: b"header\x00PackedScene_uymax\x00tail"})
         report = compare_pcks(self.a, self.b)
         self.assertEqual(report["diagnostic_status"], "MEMBER_CONTENT_DIFF")
         self.assertTrue(report["scene_id_only_drift_candidate"])
@@ -79,16 +79,16 @@ class GodotPckDiffTests(unittest.TestCase):
 
     def test_scene_identifier_and_gameplay_difference_not_candidate(self):
         name = "res://.godot/exported/123/main.scn"
-        make_pck(self.a, {name: b"gameA\\x00PackedScene_a5gy0\\x00tail"})
-        make_pck(self.b, {name: b"gameB\\x00PackedScene_uymax\\x00tail"})
+        make_pck(self.a, {name: b"gameA\x00PackedScene_a5gy0\x00tail"})
+        make_pck(self.b, {name: b"gameB\x00PackedScene_uymax\x00tail"})
         report = compare_pcks(self.a, self.b)
         self.assertFalse(report["scene_id_only_drift_candidate"])
         self.assertFalse(report["changed"][0]["packed_scene_id_only_candidate"])
 
     def test_multiple_scene_identifiers_not_candidate(self):
         name = "res://.godot/exported/123/main.scn"
-        make_pck(self.a, {name: b"PackedScene_a5gy0\\x00PackedScene_ab123\\x00"})
-        make_pck(self.b, {name: b"PackedScene_uymax\\x00PackedScene_cd456\\x00"})
+        make_pck(self.a, {name: b"PackedScene_a5gy0\x00PackedScene_ab123\x00"})
+        make_pck(self.b, {name: b"PackedScene_uymax\x00PackedScene_cd456\x00"})
         report = compare_pcks(self.a, self.b)
         self.assertFalse(report["scene_id_only_drift_candidate"])
 
