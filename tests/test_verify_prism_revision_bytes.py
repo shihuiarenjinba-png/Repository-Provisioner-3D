@@ -201,7 +201,7 @@ class PrismRevisionByteTests(unittest.TestCase):
 
     def test_windows_invalid_zip_paths_rejected(self):
         for name in ("Game/CON.txt", "Game/trailing. ", "Game/AUX",
-                     "Game/bad?.txt", "Game/bad\\x1fname"):
+                     "Game/bad?.txt", "Game/bad\x1fname"):
             with self.subTest(name=name):
                 with self.assertRaisesRegex(RevisionHandoffError, "unsafe Windows ZIP path"):
                     with _safe_zip(pack({name: b"invalid"})):
