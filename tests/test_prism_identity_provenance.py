@@ -24,6 +24,11 @@ def sample():
         "local_signature_status": "PRE_IDENTITY_EXE_NOT_MSIX", "local_package_kind": "exe",
         "package_version_gate": "HOLD", "job_origin": "GITHUB_PRE_IDENTITY_QUEUE",
         "central_repository": "shihuiarenjinba-png/Windows-all-auto",
+        "central_branch": "codex/e2e-belt-connection-20261027",
+        "central_head_sha": "43dacc1747eb75002a54375ba79c4cecbfc138bf",
+        "queue_job_digest": "7a4f4e282bc4bc78be18974539d8b33e3681282787ed82aa97463e7af5f604b8",
+        "captured_at": "2026-10-28T09:28:51.098821Z",
+        "evidence_url": "https://partner.microsoft.com/en-us/dashboard/products/9N95J2T57B41/identity",
         "verified_by": "LOCAL_WINDOWS_PARTNER_CENTER_OPERATOR",
         "package_sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
         "local_package_sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
@@ -95,6 +100,24 @@ class HistoricalIdentityTests(unittest.TestCase):
     def test_reject_injected_approved_package_version(self):
         item = sample()
         item["approved_package_version"] = "1.0.0.0"
+        with self.assertRaises(HistoricalIdentityError):
+            inspect_historical_identity(item)
+
+    def test_reject_unknown_historical_field_even_when_false(self):
+        item = sample()
+        item["identity_cas_status"] = "APPROVED"
+        with self.assertRaises(HistoricalIdentityError):
+            inspect_historical_identity(item)
+
+    def test_reject_missing_historical_metadata(self):
+        item = sample()
+        del item["captured_at"]
+        with self.assertRaises(HistoricalIdentityError):
+            inspect_historical_identity(item)
+
+    def test_reject_modified_queue_provenance(self):
+        item = sample()
+        item["queue_job_digest"] = "0" * 64
         with self.assertRaises(HistoricalIdentityError):
             inspect_historical_identity(item)
 
