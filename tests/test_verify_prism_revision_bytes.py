@@ -10,7 +10,7 @@ import zipfile
 
 from prism_revision_handoff_contract import RevisionHandoffError
 from verify_prism_revision_bytes import (
-    verify_payload_bytes, FACTORY_REPO, PROVISIONER_REPO,
+    verify_payload_bytes, _safe_zip, FACTORY_REPO, PROVISIONER_REPO,
 )
 
 HANDOFF = Path(__file__).resolve().parents[1] / "handoffs/prism-route-3d-sentinel-revision-20261029.json"
@@ -193,6 +193,19 @@ class PrismRevisionByteTests(unittest.TestCase):
         self._rewrite_qa_msix_with_consistent_outer_hashes(h, blobs, alter)
         with self.assertRaisesRegex(RevisionHandoffError, "fixture manifest mismatch"):
             self.verify(h, blobs)
+
+    def test_case_insensitive_windows_path_collision_rejected(self):
+        with self.assertRaisesRegex(RevisionHandoffError, "case-insensitive ZIP path collision"):
+            with _safe_zip(pack({"Game/game.exe": b"MZ", "game/GAME.exe": b"MZ"})):
+                pass
+
+    def test_windows_invalid_zip_paths_rejected(self):
+        for name in ("Game/CON.txt", "Game/trailing. ", "Game/AUX",
+                     "Game/bad?.txt", "Game/bad\\x1fname"):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(RevisionHandoffError, "unsafe Windows ZIP path"):
+                    with _safe_zip(pack({name: b"invalid"})):
+                        pass
 
     def test_zip_path_traversal_rejected(self):
         h, blobs = self.fixture()
