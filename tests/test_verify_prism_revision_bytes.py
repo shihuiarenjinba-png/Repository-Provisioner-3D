@@ -227,6 +227,41 @@ class PrismRevisionByteTests(unittest.TestCase):
         with self.assertRaisesRegex(RevisionHandoffError, "signed package cannot pass unsigned QA"):
             self.verify(h, blobs)
 
+    def test_case_aliased_signature_bearing_qa_msix_rejected(self):
+        # Windows resolves this name as AppxSignature.p7x; QA must stay unsigned.
+        h, blobs = self.fixture()
+        self._rewrite_qa_msix_with_consistent_outer_hashes(
+            h, blobs, lambda entries: entries.update({"appxsignature.P7X": b"forged"}))
+        with self.assertRaisesRegex(RevisionHandoffError, "signed package cannot pass unsigned QA"):
+            self.verify(h, blobs)
+
+    def test_duplicate_manifest_identity_rejected_despite_consistent_hashes(self):
+        h, blobs = self.fixture()
+        def alter(entries):
+            original = entries["AppxManifest.xml"]
+            self.assertIn(b"<Applications>", original)
+            extra = (b'<Identity Name="Example.ThreeD.Fixture" '
+                     b'Publisher="CN=Offline QA Fixture" Version="1.0.0.0" '
+                     b'ProcessorArchitecture="x64"/>')
+            entries["AppxManifest.xml"] = original.replace(
+                b"<Applications>", extra + b"<Applications>", 1)
+        self._rewrite_qa_msix_with_consistent_outer_hashes(h, blobs, alter)
+        with self.assertRaisesRegex(RevisionHandoffError, "fixture manifest mismatch"):
+            self.verify(h, blobs)
+
+    def test_duplicate_manifest_application_rejected_despite_consistent_hashes(self):
+        h, blobs = self.fixture()
+        def alter(entries):
+            original = entries["AppxManifest.xml"]
+            self.assertIn(b"</Applications>", original)
+            extra = (b'<Application Id="Other" Executable="Game\\\\game.exe" '
+                     b'EntryPoint="Windows.FullTrustApplication"/>')
+            entries["AppxManifest.xml"] = original.replace(
+                b"</Applications>", extra + b"</Applications>", 1)
+        self._rewrite_qa_msix_with_consistent_outer_hashes(h, blobs, alter)
+        with self.assertRaisesRegex(RevisionHandoffError, "fixture manifest mismatch"):
+            self.verify(h, blobs)
+
     def test_fixture_version_drift_rejected_despite_consistent_hashes(self):
         h, blobs = self.fixture()
         def alter(entries):
