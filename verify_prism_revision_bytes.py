@@ -132,7 +132,7 @@ def _verify_unsigned_qa_fixture_manifest(archive):
     """Confirm the unsigned MSIX is a QA fixture, never the Prism Store identity."""
     # MakeAppx QA is deliberately unsigned. A recomputed report/ZIP digest
     # must never let a signed (or signature-bearing) package pose as this fixture.
-    if "AppxSignature.p7x" in archive.namelist():
+    if any(name.casefold() == "appxsignature.p7x" for name in archive.namelist()):
         raise RevisionHandoffError("signed package cannot pass unsigned QA")
     name = "AppxManifest.xml"
     if name not in archive.namelist() or archive.getinfo(name).file_size > 65536:
@@ -145,8 +145,13 @@ def _verify_unsigned_qa_fixture_manifest(archive):
     rescap = "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
     if root.tag != f"{{{ns}}}Package":
         raise RevisionHandoffError("wrong unsigned QA manifest namespace")
-    identity = root.find(f"{{{ns}}}Identity")
-    application = root.find(f"{{{ns}}}Applications/{{{ns}}}Application")
+    identities = root.findall(f"{{{ns}}}Identity")
+    applications = root.findall(f"{{{ns}}}Applications/{{{ns}}}Application")
+    # A first-match lookup can approve a fixture Identity while a second,
+    # conflicting Identity or Application is present in the same manifest.
+    if len(identities) != 1 or len(applications) != 1:
+        raise RevisionHandoffError("unsigned QA fixture manifest mismatch")
+    identity, application = identities[0], applications[0]
     capability = root.find(f"{{{ns}}}Capabilities/{{{rescap}}}Capability")
     if (identity is None or identity.get("Name") != "Example.ThreeD.Fixture"
             or identity.get("Publisher") != "CN=Offline QA Fixture"
