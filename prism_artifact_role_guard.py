@@ -21,6 +21,23 @@ ROLE_SOURCE = {
 HEX64 = re.compile(r"[0-9a-f]{64}\Z")
 
 
+# Immutable anchors from the independently downloaded 2026-10-31 receipt.
+# These are historical evidence pins, NOT live GitHub authentication.
+PINNED_ARTIFACTS = {
+    "sentinel_factory": (12909162367, 40901053437, 30880705,
+                         "dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c"),
+    "original_factory": (12795476435, 40640951915, 30870461,
+                         "76b5fae99491b70514e3152483e0192ac70b2909d8f6eeb9802a640ad12409b0"),
+    "latest_original_pre": (13019169511, 41144895012, 4601,
+                            "3c016f3beec35cb646822a3b1dfe74bd676394e99b1f644f13b036641e1ef592"),
+    "latest_original_unsigned_msix": (13020309226, 41144895026, 31021713,
+                                      "e504e21b86010a3a5adcbce4a24e237f0d5ab3033b344a9ad76d4712aa53b0b9"),
+}
+PINNED_PCK = {
+    ORIGINAL: "2cd8af6496cf288bc3e6aef317e472b480f21d2052cbd4ae0cd171e6285ab1ef",
+    SENTINEL: "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03",
+}
+
 class ArtifactRoleError(ValueError):
     """Artifact is not safely attributable to the requested source revision."""
 
@@ -48,8 +65,10 @@ def select_audited_artifact(receipt, *, role, artifact_id, expected_source_sha):
     new_pck = payloads.get("sentinel_pck_sha256")
     if (not isinstance(old_pck, str) or not HEX64.fullmatch(old_pck)
             or not isinstance(new_pck, str) or not HEX64.fullmatch(new_pck)
-            or old_pck == new_pck):
-        raise ArtifactRoleError("unproven distinct PCK payloads")
+            or old_pck == new_pck
+            or old_pck != PINNED_PCK[ORIGINAL]
+            or new_pck != PINNED_PCK[SENTINEL]):
+        raise ArtifactRoleError("unproven or altered PCK payloads")
     comparisons = receipt.get("comparisons")
     required = {
         "latest_pre_source_is_original_not_sentinel": True,
@@ -90,6 +109,11 @@ def select_audited_artifact(receipt, *, role, artifact_id, expected_source_sha):
                          else "shihuiarenjinba-png/Repository-Provisioner-3D")
         if item.get("repo") != expected_repo:
             raise ArtifactRoleError("artifact repository mismatch")
+        pinned = PINNED_ARTIFACTS[name]
+        if (item["artifact_id"], item["run_id"],
+                item["downloaded_zip_size_bytes"],
+                item["downloaded_zip_sha256"]) != pinned:
+            raise ArtifactRoleError("historical artifact bytes or identity not pinned")
         ids.append(item["artifact_id"])
     if len(set(ids)) != len(ids):
         raise ArtifactRoleError("duplicate artifact ID")
