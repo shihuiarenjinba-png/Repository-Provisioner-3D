@@ -14,6 +14,7 @@ import struct
 MAX_PACK_BYTES = 2_000_000_000
 MAX_MEMBERS = 100_000
 MAX_PATH_BYTES = 16_384
+MAX_SMALL_MEMBER_DIAGNOSTIC_BYTES = 4096
 
 
 def _read_exact(stream, size: int) -> bytes:
@@ -35,7 +36,7 @@ def _digest_stream(stream, size: int) -> tuple[str, bytes]:
     return sha.hexdigest(), md5.digest()
 
 
-def inventory_pck(path: Path) -> dict:
+def inventory_pck(path: Path, *, capture_small_members: bool = False) -> dict:
     if path.is_symlink() or not path.is_file():
         raise ValueError("PCK is not a regular file")
     total = path.stat().st_size
@@ -79,21 +80,45 @@ def inventory_pck(path: Path) -> dict:
                 raise ValueError("PCK member payload outside file")
             entries.append((name, absolute, size, expected_md5))
         members = {}
+        small_members = {}
         for name, absolute, size, expected_md5 in entries:
             stream.seek(absolute)
             sha, actual_md5 = _digest_stream(stream, size)
             if actual_md5 != expected_md5:
                 raise ValueError("PCK member checksum mismatch")
             members[name] = {"sha256": sha, "size_bytes": size}
+            if capture_small_members and size <= MAX_SMALL_MEMBER_DIAGNOSTIC_BYTES:
+                stream.seek(absolute)
+                small_members[name] = _read_exact(stream, size)
         stream.seek(0)
         full_sha, _ = _digest_stream(stream, total)
-    return {"sha256": full_sha, "size_bytes": total,
-            "godot_version": f"{major}.{minor}.{patch}", "pck_format": fmt,
-            "member_count": count, "members": members}
+    result = {"sha256": full_sha, "size_bytes": total,
+              "godot_version": f"{major}.{minor}.{patch}", "pck_format": fmt,
+              "member_count": count, "members": members}
+    if capture_small_members:
+        result["_small_members"] = small_members
+    return result
+
+
+def _small_byte_diff(factory: bytes, local: bytes) -> dict:
+    """Bounded binary evidence only; never infer semantic equivalence."""
+    common = min(len(factory), len(local))
+    differing = [i for i in range(common) if factory[i] != local[i]]
+    first = differing[0] if differing else common
+    count = len(differing) + abs(len(factory) - len(local))
+    start = max(0, first - 12)
+    end = first + 16
+    return {"first_differing_offset": first, "differing_byte_count": count,
+            "factory_hex_window": factory[start:end].hex(),
+            "local_hex_window": local[start:end].hex(),
+            "hex_window_start": start,
+            "interpretation": "BINARY_DIAGNOSTIC_ONLY_NOT_SEMANTIC_PROOF"}
 
 
 def compare_pcks(factory: Path, local: Path) -> dict:
-    a, b = inventory_pck(factory), inventory_pck(local)
+    a = inventory_pck(factory, capture_small_members=True)
+    b = inventory_pck(local, capture_small_members=True)
+    a_small, b_small = a.pop("_small_members"), b.pop("_small_members")
     left, right = a.pop("members"), b.pop("members")
     only_factory = sorted(left.keys() - right.keys())
     only_local = sorted(right.keys() - left.keys())
@@ -104,13 +129,19 @@ def compare_pcks(factory: Path, local: Path) -> dict:
         status = "MEMBERS_IDENTICAL_CONTAINER_DIFF"
     else:
         status = "MEMBER_CONTENT_DIFF"
+    changed_details = []
+    for name in changed[:30]:
+        item = {"path": name, "factory": left[name], "local": right[name]}
+        if name in a_small and name in b_small:
+            item["small_member_byte_diff"] = _small_byte_diff(a_small[name], b_small[name])
+        changed_details.append(item)
     return {"diagnostic_status": status, "factory": a, "local_reexport": b,
             "only_in_factory_count": len(only_factory),
             "only_in_local_count": len(only_local),
             "changed_count": len(changed),
             "only_in_factory": only_factory[:30],
             "only_in_local": only_local[:30],
-            "changed": [{"path": k, "factory": left[k], "local": right[k]} for k in changed[:30]],
+            "changed": changed_details,
             "report_truncated": any(len(x) > 30 for x in (only_factory, only_local, changed)),
             "reproducible_export_approved": False,
             "official_identity_cas_verified": False,
