@@ -72,6 +72,22 @@ def inspect_historical_identity(record: dict) -> dict:
     for field, value in expected.items():
         if record.get(field) != value:
             raise HistoricalIdentityError("historical Identity field mismatch: " + field)
+    # A historical identity record is provenance only.  Do not accept
+    # forward-looking approval claims embedded in the old-source JSON,
+    # even if the remaining pinned historical fields are unchanged.
+    forbidden_approval_fields = (
+        "new_revision_cas_verified",
+        "official_identity_cas_verified",
+        "signed_msix_verified",
+        "windows_all_auto_intake_verified",
+        "store_submission_allowed",
+        "product_e2e",
+    )
+    for field in forbidden_approval_fields:
+        if field in record:
+            raise HistoricalIdentityError("historical record contains revision approval claim: " + field)
+    if record.get("approved_package_version") is not None:
+        raise HistoricalIdentityError("historical record contains approved package version")
     if record.get("reviewed") is not True or record.get("source") != "partner_center":
         raise HistoricalIdentityError("historical review claim missing")
     if record.get("verified_by") != "LOCAL_WINDOWS_PARTNER_CENTER_OPERATOR":
