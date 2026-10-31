@@ -89,6 +89,16 @@ def _verify_archive(raw, item):
     return _safe_zip(raw)
 
 
+def _reject_duplicate_json_keys(pairs):
+    """Fail closed on ambiguous provenance JSON, including nested objects."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise RevisionHandoffError("duplicate evidence JSON key")
+        result[key] = value
+    return result
+
+
 def _json_entry(archive, name):
     if name not in archive.namelist():
         raise RevisionHandoffError("missing evidence JSON")
@@ -96,7 +106,7 @@ def _json_entry(archive, name):
         data = stream.read(65537)
     if len(data) > 65536:
         raise RevisionHandoffError("oversized evidence JSON")
-    result = json.loads(data)
+    result = json.loads(data, object_pairs_hook=_reject_duplicate_json_keys)
     if not isinstance(result, dict):
         raise RevisionHandoffError("evidence JSON must be an object")
     return result
