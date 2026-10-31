@@ -68,7 +68,17 @@ def inspect_historical_identity(record: dict) -> dict:
         "package_version_gate": "HOLD",
         "job_origin": "GITHUB_PRE_IDENTITY_QUEUE",
         "central_repository": "shihuiarenjinba-png/Windows-all-auto",
+        "central_branch": "codex/e2e-belt-connection-20261027",
+        "central_head_sha": "43dacc1747eb75002a54375ba79c4cecbfc138bf",
+        "queue_job_digest": "7a4f4e282bc4bc78be18974539d8b33e3681282787ed82aa97463e7af5f604b8",
+        "captured_at": "2026-10-28T09:28:51.098821Z",
+        "evidence_url": "https://partner.microsoft.com/en-us/dashboard/products/9N95J2T57B41/identity",
     }
+    # The source blob is immutable and pinned.  Reject any added or omitted
+    # fields rather than letting future approval-looking keys slip through.
+    allowed_keys = set(expected) | {"reviewed", "source", "verified_by"}
+    if set(record) != allowed_keys:
+        raise HistoricalIdentityError("historical Identity schema mismatch")
     for field, value in expected.items():
         if record.get(field) != value:
             raise HistoricalIdentityError("historical Identity field mismatch: " + field)
