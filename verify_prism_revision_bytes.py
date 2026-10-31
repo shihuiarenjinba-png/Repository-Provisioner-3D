@@ -24,6 +24,9 @@ PROVISIONER_REPO = "shihuiarenjinba-png/Repository-Provisioner-3D"
 MAX_ARCHIVE_BYTES = 150 * 1024 * 1024
 MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
 MAX_ENTRIES = 30
+WINDOWS_RESERVED_NAMES = frozenset({"CON", "PRN", "AUX", "NUL"} | {
+    f"{prefix}{index}" for prefix in ("COM", "LPT") for index in range(1, 10)
+})
 
 
 def _safe_zip(raw):
@@ -32,7 +35,7 @@ def _safe_zip(raw):
     if not files or len(files) > MAX_ENTRIES:
         archive.close()
         raise RevisionHandoffError("unsafe ZIP entry count")
-    names, total = set(), 0
+    names, windows_names, total = set(), set(), 0
     for info in files:
         name = info.filename
         parts = name.replace("\\", "/").split("/")
@@ -43,6 +46,21 @@ def _safe_zip(raw):
                 or ((info.external_attr >> 16) & 0o170000) == 0o120000):
             archive.close()
             raise RevisionHandoffError("unsafe ZIP entry")
+        # MSIX is consumed on Windows: distinct ZIP names can alias on a
+        # case-insensitive filesystem or normalize to an unsafe Windows path.
+        if any(
+            part.endswith((" ", "."))
+            or part.split(".", 1)[0].upper() in WINDOWS_RESERVED_NAMES
+            or any(ord(char) < 32 or ord(char) == 127 or char in '<>|?*"' for char in part)
+            for part in parts
+        ):
+            archive.close()
+            raise RevisionHandoffError("unsafe Windows ZIP path")
+        windows_key = name.casefold()
+        if windows_key in windows_names:
+            archive.close()
+            raise RevisionHandoffError("case-insensitive ZIP path collision")
+        windows_names.add(windows_key)
         names.add(name)
         total += info.file_size
         if total > MAX_UNCOMPRESSED_BYTES:
