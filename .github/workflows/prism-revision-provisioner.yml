@@ -207,6 +207,96 @@ jobs:
           print('PCK_DIAGNOSTIC_STATUS='+report['diagnostic_status'])
           print('PCK_CHANGED_MEMBERS='+str(report.get('changed_count','UNKNOWN')))
           PY
+      - name: Isolated Godot scene UID determinism probe (diagnostic-only; source unchanged)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          import subprocess
+          import tempfile
+          from pathlib import Path
+          from godot_pck_diff import compare_pcks
+
+          output = Path("revision-scene-uid-probe.json")
+          receipt = {
+              "schema_version": 1,
+              "product": "Prism Route 3D",
+              "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+              "request_id": "3d-prism-route-3d-e432d94ed0db",
+              "scope": "TEMPORARY_ISOLATED_COPIES_ONLY",
+              "pinned_source_modified": False,
+              "factory_artifact_modified": False,
+              "canonical_payload": "AUTHENTICATED_FACTORY_ARTIFACT",
+              "reproducible_export_approved": False,
+              "official_identity_cas_verified": False,
+              "store_submission_allowed": False,
+              "product_e2e": "HOLD",
+          }
+          try:
+              result = json.loads(Path("revision-result.json").read_text())
+              evidence = result["factory_export_evidence"]
+              assert result["status"] == "HOLD"
+              assert evidence["status"] == "PRE_IDENTITY_BYTES_CORRELATED"
+              canonical = Path(evidence["canonical_package_path"]).resolve(strict=True)
+              assert canonical.name == "candidate.exe"
+              assert canonical.parent.name == "authenticated-factory-payload"
+              assert canonical.parent.parent.name == "factory-evidence"
+              source = canonical.parent.parent.parent / "source" / "products" / "prism-route-3d"
+              source = source.resolve(strict=True)
+              scene = source / "scenes" / "main.tscn"
+              assert scene.is_file() and (source / "project.godot").is_file()
+              assert not any(p.is_symlink() for p in source.rglob("*"))
+              original = scene.read_text(encoding="utf-8")
+              assert original.startswith("[gd_scene ") and "uid=" not in original.splitlines()[0]
+              godot = os.environ["GODOT_EXE"]
+              with tempfile.TemporaryDirectory(prefix="prism-uid-probe-") as tmp:
+                  root = Path(tmp)
+                  pcks = {}
+                  for variant in ("original", "explicit_uid"):
+                      for index in (1, 2):
+                          project = root / f"{variant}-{index}"
+                          shutil.copytree(source, project, ignore=shutil.ignore_patterns(".godot", ".git", "dist"))
+                          if variant == "explicit_uid":
+                              target_scene = project / "scenes" / "main.tscn"
+                              text = target_scene.read_text(encoding="utf-8")
+                              text = text.replace("format=3]", 'format=3 uid="uid://bfr6q7h5c3e1s"]', 1)
+                              assert text != original and "uid=" in text.splitlines()[0]
+                              target_scene.write_text(text, encoding="utf-8")
+                          target = root / f"{variant}-{index}.exe"
+                          for cmd in (
+                              [godot, "--headless", "--editor", "--path", str(project), "--import"],
+                              [godot, "--headless", "--path", str(project), "--export-release", "Windows Desktop", str(target)],
+                          ):
+                              run = subprocess.run(cmd, cwd=project, text=True, capture_output=True, timeout=240)
+                              if run.returncode:
+                                  raise RuntimeError(f"Godot {variant}-{index} returned {run.returncode}: {run.stderr[-500:]}")
+                          pck = target.with_suffix(".pck")
+                          if not pck.is_file() or pck.stat().st_size == 0:
+                              raise RuntimeError("Probe Windows export omitted PCK")
+                          pcks[(variant, index)] = pck
+                  for variant in ("original", "explicit_uid"):
+                      comparison = compare_pcks(pcks[(variant, 1)], pcks[(variant, 2)])
+                      receipt[variant] = {
+                          "pck_a_sha256": comparison["factory"]["sha256"],
+                          "pck_b_sha256": comparison["local_reexport"]["sha256"],
+                          "diagnostic_status": comparison["diagnostic_status"],
+                          "changed_count": comparison["changed_count"],
+                          "scene_id_only_drift_candidate": comparison["scene_id_only_drift_candidate"],
+                      }
+              receipt["status"] = "COMPLETED_DIAGNOSTIC_ONLY"
+          except (OSError, ValueError, KeyError, AssertionError, RuntimeError, subprocess.TimeoutExpired) as exc:
+              receipt["status"] = "PROBE_UNAVAILABLE_HOLD"
+              receipt["error_type"] = type(exc).__name__
+              receipt["error"] = str(exc)[:500]
+          output.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print("SCENE_UID_PROBE=" + json.dumps(receipt, sort_keys=True))
+          assert receipt["pinned_source_modified"] is False
+          assert receipt["store_submission_allowed"] is False
+          assert receipt["product_e2e"] == "HOLD"
+          PY
       - name: Check existing Identity is old-source provenance, not revision approval
         shell: bash
         run: |
@@ -247,5 +337,6 @@ jobs:
             revision-result.json
             revision-pre-receipt.json
             revision-pck-diagnostic.json
+            revision-scene-uid-probe.json
           if-no-files-found: warn
           retention-days: 7
