@@ -18,6 +18,8 @@ on:
       - tests/test_godot_pck_diff.py
       - tests/test_verify_prism_revision_bytes.py
       - tests/test_prism_revision_handoff_runtime.py
+      - prism_identity_provenance.py
+      - tests/test_prism_identity_provenance.py
       - handoffs/prism-route-3d-sentinel-revision-20261029.json
   workflow_dispatch:
 
@@ -301,11 +303,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh api '/repos/shihuiarenjinba-png/3d-game-factory/contents/products/prism-route-3d/store/approved-identity.json?ref=codex%2Fprism-route-trap-tension-20261029' | jq -r .content | base64 -d > /tmp/prism-old-identity.json
+          gh api --method GET '/repos/shihuiarenjinba-png/3d-game-factory/contents/products/prism-route-3d/store/approved-identity.json?ref=e432d94ed0db22878f61f1a8af140d7d7de2288f' > /tmp/prism-old-identity-api.json
+          jq -e --arg sha '9b38b20527b81c85fd03b5373d4a8f8245047115' '.sha == $sha and .encoding == "base64"' /tmp/prism-old-identity-api.json > /dev/null
+          jq -r .content /tmp/prism-old-identity-api.json | base64 -d > /tmp/prism-old-identity.json
           python - <<'PY'
           import json
           from pathlib import Path
-          old=json.loads(Path('/tmp/prism-old-identity.json').read_text())
+          from prism_identity_provenance import load_record, inspect_historical_identity
+          old=load_record(Path('/tmp/prism-old-identity.json').read_text(encoding='utf-8'))
+          identity_guard=inspect_historical_identity(old)
+          assert identity_guard['status']=='HISTORICAL_IDENTITY_RECORD_CONSISTENT_HOLD_ONLY'
+          assert identity_guard['new_revision_cas_verified'] is False
+          assert identity_guard['partner_center_record_claim_is_live_authenticated'] is False
+          assert identity_guard['store_submission_allowed'] is False
           job=json.loads(Path('revision-job.json').read_text())
           result=json.loads(Path('revision-result.json').read_text())
           assert old['source_sha']==old['verified_source_sha']=='15fdcb52e46e35e6de8e87c55af99719c21e09b9'
@@ -324,6 +334,7 @@ jobs:
             approved_package_version=None,signed_msix_verified=False,
             windows_all_auto_intake_verified=False,local_gate='DEFERRED_LOCAL_GATE',
             product_e2e='HOLD',second_3d_product_allowed=False)
+          receipt['historical_identity_guard']=identity_guard
           Path('revision-pre-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
           print('PASS: old Identity reuse reference validated as provenance only; post-Identity HOLD')
           PY
