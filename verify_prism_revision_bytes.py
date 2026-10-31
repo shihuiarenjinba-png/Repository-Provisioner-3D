@@ -254,7 +254,8 @@ def main(argv=None):
         if metadata.get("store_submission_allowed") is not False:
             raise RevisionHandoffError("unsafe metadata authorization")
         receipt = verify_payload_bytes(handoff, _download_zip)
-    except (OSError, ValueError, subprocess.SubprocessError, TimeoutError,
+    except (RevisionHandoffError, OSError, ValueError,
+            subprocess.SubprocessError, TimeoutError,
             zipfile.BadZipFile, EOFError) as exc:
         print(json.dumps({"status": "HOLD", "reason": type(exc).__name__,
                           "artifact_zip_bytes_verified": False,
