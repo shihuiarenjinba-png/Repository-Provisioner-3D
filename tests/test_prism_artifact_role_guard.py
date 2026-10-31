@@ -88,5 +88,32 @@ class PrismArtifactSourceRoleTests(unittest.TestCase):
             self.choose("sentinel_factory", 12909162367, SENTINEL, modified)
 
 
+    def test_rewritten_receipt_artifact_id_is_not_an_authority(self):
+        modified = deepcopy(self.receipt)
+        modified["artifacts"]["sentinel_factory"]["artifact_id"] = 19999999999
+        with self.assertRaises(ArtifactRoleError):
+            self.choose("sentinel_factory", 19999999999, SENTINEL, modified)
+
+    def test_rewritten_receipt_zip_digest_is_not_an_authority(self):
+        modified = deepcopy(self.receipt)
+        modified["artifacts"]["latest_original_unsigned_msix"]["downloaded_zip_sha256"] = "a" * 64
+        with self.assertRaises(ArtifactRoleError):
+            self.choose("sentinel_factory", 12909162367, SENTINEL, modified)
+
+    def test_rewritten_receipt_run_or_size_is_not_an_authority(self):
+        for field, value in (("run_id", 49999999999), ("downloaded_zip_size_bytes", 1)):
+            with self.subTest(field=field):
+                modified = deepcopy(self.receipt)
+                modified["artifacts"]["latest_original_pre"][field] = value
+                with self.assertRaises(ArtifactRoleError):
+                    self.choose("latest_original_pre", 13019169511, ORIGINAL, modified)
+
+    def test_rewritten_distinct_pck_digest_is_not_an_authority(self):
+        modified = deepcopy(self.receipt)
+        modified["source_payloads"]["sentinel_pck_sha256"] = "b" * 64
+        with self.assertRaises(ArtifactRoleError):
+            self.choose("sentinel_factory", 12909162367, SENTINEL, modified)
+
+
 if __name__ == "__main__":
     unittest.main()
