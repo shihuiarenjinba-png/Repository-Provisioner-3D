@@ -25,7 +25,8 @@ def sample():
         "package_version_gate": "HOLD", "job_origin": "GITHUB_PRE_IDENTITY_QUEUE",
         "central_repository": "shihuiarenjinba-png/Windows-all-auto",
         "verified_by": "LOCAL_WINDOWS_PARTNER_CENTER_OPERATOR",
-        "package_sha256": "a" * 64, "local_package_sha256": "a" * 64,
+        "package_sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
+        "local_package_sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
     }
 
 
@@ -67,6 +68,16 @@ class HistoricalIdentityTests(unittest.TestCase):
 
     def test_reject_invalid_sid(self):
         item = sample(); item["package_sid"] = "not-a-sid"
+        with self.assertRaises(HistoricalIdentityError): inspect_historical_identity(item)
+
+    def test_reject_different_well_formed_sid(self):
+        item = sample()
+        item["package_sid"] = "S-1-15-2-1-2-3-4-5-6-7"
+        with self.assertRaises(HistoricalIdentityError): inspect_historical_identity(item)
+
+    def test_reject_replaced_matching_digest_pair(self):
+        item = sample()
+        item["package_sha256"] = item["local_package_sha256"] = "b" * 64
         with self.assertRaises(HistoricalIdentityError): inspect_historical_identity(item)
 
     def test_reject_duplicate_keys(self):
