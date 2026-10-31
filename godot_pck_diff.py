@@ -119,7 +119,7 @@ def _small_byte_diff(factory: bytes, local: bytes) -> dict:
 # A five-character PackedScene identifier is a *candidate* for a transient
 # Godot resource name, not proof that two compiled scenes behave identically.
 # Require an identical binary payload after replacing exactly one identifier.
-_PACKED_SCENE_ID = re.compile(rb"PackedScene_([a-z0-9]{5})(?=\\x00)")
+_PACKED_SCENE_ID = re.compile(rb"PackedScene_([a-z0-9]{5})(?=\x00)")
 
 
 def _only_packed_scene_identifier_diff(factory: bytes, local: bytes) -> bool:
