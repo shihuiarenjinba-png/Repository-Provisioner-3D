@@ -199,6 +199,24 @@ class PrismRevisionByteTests(unittest.TestCase):
             with _safe_zip(pack({"Game/game.exe": b"MZ", "game/GAME.exe": b"MZ"})):
                 pass
 
+    def test_unicode_nfc_alias_rejected(self):
+        with self.assertRaisesRegex(RevisionHandoffError, "case-insensitive ZIP path collision"):
+            with _safe_zip(pack({
+                "Game/caf\u00e9.txt": b"one",
+                "game/cafe\u0301.txt": b"two",
+            })):
+                pass
+
+    def test_file_directory_prefix_collision_rejected(self):
+        for entries in (
+            {"Game": b"file", "Game/game.exe": b"MZ"},
+            {"game/game.exe": b"MZ", "GAME": b"file"},
+        ):
+            with self.subTest(entries=tuple(entries)):
+                with self.assertRaisesRegex(RevisionHandoffError, "ZIP file/directory prefix collision"):
+                    with _safe_zip(pack(entries)):
+                        pass
+
     def test_windows_invalid_zip_paths_rejected(self):
         for name in ("Game/CON.txt", "Game/trailing. ", "Game/AUX",
                      "Game/bad?.txt", "Game/bad\x1fname"):
