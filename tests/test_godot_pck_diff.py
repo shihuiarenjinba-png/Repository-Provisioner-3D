@@ -8,8 +8,8 @@ import unittest
 from godot_pck_diff import compare_pcks, inventory_pck
 
 
-def make_pck(path: Path, members: dict[str, bytes], *, version=2, flags=0):
-    header = struct.pack("<4sIIIIIQ", b"GDPC", version, 4, 3, 0, flags, 0) + bytes(64)
+def make_pck(path: Path, members: dict[str, bytes], *, version=2, flags=0, base=0):
+    header = struct.pack("<4sIIIIIQ", b"GDPC", version, 4, 3, 0, flags, base) + bytes(64)
     names = list(members)
     entry_size = sum(4 + len(n.encode()) + 16 + 16 + 4 for n in names)
     position = len(header) + 4 + entry_size
@@ -19,7 +19,7 @@ def make_pck(path: Path, members: dict[str, bytes], *, version=2, flags=0):
         blob = members[name]
         encoded = name.encode()
         directory += struct.pack("<I", len(encoded)) + encoded
-        directory += struct.pack("<QQ", position, len(blob))
+        directory += struct.pack("<QQ", position - base, len(blob))
         directory += hashlib.md5(blob, usedforsecurity=False).digest() + struct.pack("<I", 0)
         position += len(blob)
         data += blob
@@ -55,6 +55,10 @@ class GodotPckDiffTests(unittest.TestCase):
         make_pck(self.a, {"res://a.gd": b"alpha"})
         make_pck(self.b, {"res://a.gd": b"alpha", "res://b.gd": b"beta"})
         self.assertEqual(compare_pcks(self.a, self.b)["only_in_local_count"], 1)
+
+    def test_nonzero_file_base_without_relative_flag(self):
+        make_pck(self.a, {"res://a.gd": b"alpha"}, base=16)
+        self.assertEqual(inventory_pck(self.a)["member_count"], 1)
 
     def test_bad_member_md5_rejected(self):
         make_pck(self.a, {"res://a.gd": b"alpha"})
