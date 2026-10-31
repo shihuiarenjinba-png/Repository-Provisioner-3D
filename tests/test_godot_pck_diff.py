@@ -51,6 +51,30 @@ class GodotPckDiffTests(unittest.TestCase):
         self.assertEqual((r["diagnostic_status"], r["changed_count"]), ("MEMBER_CONTENT_DIFF", 1))
         self.assertFalse(r["store_submission_allowed"])
 
+    def test_small_compiled_scene_byte_window(self):
+        name = "res://.godot/exported/123/main.scn"
+        make_pck(self.a, {name: b"prefix-uid:AAA-suffix"})
+        make_pck(self.b, {name: b"prefix-uid:BBB-suffix"})
+        report = compare_pcks(self.a, self.b)
+        detail = report["changed"][0]["small_member_byte_diff"]
+        self.assertEqual(detail["first_differing_offset"], 11)
+        self.assertEqual(detail["differing_byte_count"], 3)
+        self.assertEqual(detail["interpretation"], "BINARY_DIAGNOSTIC_ONLY_NOT_SEMANTIC_PROOF")
+        self.assertFalse(report["reproducible_export_approved"])
+
+    def test_large_member_does_not_emit_binary_window(self):
+        make_pck(self.a, {"res://big.bin": b"A" * 4097})
+        make_pck(self.b, {"res://big.bin": b"B" * 4097})
+        report = compare_pcks(self.a, self.b)
+        self.assertNotIn("small_member_byte_diff", report["changed"][0])
+        self.assertEqual(report["changed_count"], 1)
+
+    def test_size_only_difference_reports_offset(self):
+        make_pck(self.a, {"res://scene.scn": b"abc"})
+        make_pck(self.b, {"res://scene.scn": b"abcd"})
+        detail = compare_pcks(self.a, self.b)["changed"][0]["small_member_byte_diff"]
+        self.assertEqual((detail["first_differing_offset"], detail["differing_byte_count"]), (3, 1))
+
     def test_added_member(self):
         make_pck(self.a, {"res://a.gd": b"alpha"})
         make_pck(self.b, {"res://a.gd": b"alpha", "res://b.gd": b"beta"})
