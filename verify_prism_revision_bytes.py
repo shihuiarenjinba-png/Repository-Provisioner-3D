@@ -7,6 +7,7 @@ import argparse
 import hashlib
 from io import BytesIO
 import json
+import unicodedata
 from pathlib import Path
 import subprocess
 import tempfile
@@ -56,10 +57,20 @@ def _safe_zip(raw):
         ):
             archive.close()
             raise RevisionHandoffError("unsafe Windows ZIP path")
-        windows_key = name.casefold()
+        # Windows may alias Unicode-normalized names; a file must not also
+        # act as a parent directory of another archive member.
+        windows_key = "/".join(
+            unicodedata.normalize("NFC", part).casefold() for part in parts)
         if windows_key in windows_names:
             archive.close()
             raise RevisionHandoffError("case-insensitive ZIP path collision")
+        if any(
+            existing.startswith(windows_key + "/")
+            or windows_key.startswith(existing + "/")
+            for existing in windows_names
+        ):
+            archive.close()
+            raise RevisionHandoffError("ZIP file/directory prefix collision")
         windows_names.add(windows_key)
         names.add(name)
         total += info.file_size
