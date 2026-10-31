@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import struct
 
@@ -115,6 +116,28 @@ def _small_byte_diff(factory: bytes, local: bytes) -> dict:
             "interpretation": "BINARY_DIAGNOSTIC_ONLY_NOT_SEMANTIC_PROOF"}
 
 
+# A five-character PackedScene identifier is a *candidate* for a transient
+# Godot resource name, not proof that two compiled scenes behave identically.
+# Require an identical binary payload after replacing exactly one identifier.
+_PACKED_SCENE_ID = re.compile(rb"PackedScene_([a-z0-9]{5})(?=\\x00)")
+
+
+def _only_packed_scene_identifier_diff(factory: bytes, local: bytes) -> bool:
+    if factory == local or len(factory) != len(local):
+        return False
+    left = list(_PACKED_SCENE_ID.finditer(factory))
+    right = list(_PACKED_SCENE_ID.finditer(local))
+    if len(left) != 1 or len(right) != 1:
+        return False
+    a, b = left[0], right[0]
+    if a.start(1) != b.start(1):
+        return False
+    start, end = a.span(1)
+    return (factory[:start] == local[:start]
+            and factory[end:] == local[end:]
+            and factory[start:end] != local[start:end])
+
+
 def compare_pcks(factory: Path, local: Path) -> dict:
     a = inventory_pck(factory, capture_small_members=True)
     b = inventory_pck(local, capture_small_members=True)
@@ -134,8 +157,16 @@ def compare_pcks(factory: Path, local: Path) -> dict:
         item = {"path": name, "factory": left[name], "local": right[name]}
         if name in a_small and name in b_small:
             item["small_member_byte_diff"] = _small_byte_diff(a_small[name], b_small[name])
+            item["packed_scene_id_only_candidate"] = (
+                name.endswith(".scn")
+                and _only_packed_scene_identifier_diff(a_small[name], b_small[name]))
         changed_details.append(item)
+    scene_id_only_candidate = (
+        not only_factory and not only_local and len(changed) == 1
+        and changed_details[0].get("packed_scene_id_only_candidate") is True)
     return {"diagnostic_status": status, "factory": a, "local_reexport": b,
+            "scene_id_only_drift_candidate": scene_id_only_candidate,
+            "scene_id_drift_interpretation": "BINARY_PATTERN_ONLY_NOT_SEMANTIC_PROOF",
             "only_in_factory_count": len(only_factory),
             "only_in_local_count": len(only_local),
             "changed_count": len(changed),
