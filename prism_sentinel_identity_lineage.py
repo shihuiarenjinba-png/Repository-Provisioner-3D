@@ -47,7 +47,17 @@ def inspect_lineage(request, inherited):
             or request.get("registration_type") != "MSIX_OR_PWA_GAME"
             or request.get("partner_center_selection") != "MSIX or PWA game"
             or request.get("packaging_strategy") != "GODOT_WINDOWS_EXE_PCK_TO_MAKEAPPX_STANDARD_MSIX"
-            or request.get("allow_local_product_creation") is not False):
+            or request.get("allow_local_product_creation") is not False
+            or request.get("status") != "USER_ID_REQUEST_REVERIFY_EXISTING_PRODUCT"
+            or request.get("source_repository") != "shihuiarenjinba-png/3d-game-factory"
+            or request.get("source_branch") != "codex/prism-route-trap-tension-20261029"
+            or request.get("partner_center_product_status") != "UNRECONCILED_MANUAL_OBSERVATIONS"
+            or request.get("official_identity_capture_status") != "NOT_INDEPENDENTLY_AUTHENTICATED"
+            or request.get("approved_package_version") is not None
+            or request.get("signed_post_identity_msix_sha256") is not None
+            or request.get("windows_all_auto_intake_receipt") is not None
+            or request.get("xbox_title_id_scid_msa_app_id_required") is not False
+            or request.get("local_windows_gui_gpu_install") != "DEFERRED_LOCAL_GATE"):
         raise IdentityLineageError("pinned Sentinel request mismatch")
     fields = request.get("official_identity_fields_required")
     if not isinstance(fields, dict) or set(fields) != REQUIRED or any(value is not None for value in fields.values()):
