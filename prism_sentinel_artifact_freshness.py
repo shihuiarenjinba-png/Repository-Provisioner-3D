@@ -13,6 +13,25 @@ from pathlib import Path
 from prism_20261101_source_gate import ANCHORS, SENTINEL, SENTINEL_REQUEST
 
 ROLES = ("factory", "sentinel_pre", "sentinel_unsigned_qa")
+# Provenance from authenticated GitHub REST artifact metadata. The Factory
+# workflow HEAD is the game source; Provisioner workflow HEAD is the builder
+# commit and must NOT be mistaken for the game source SHA.
+WORKFLOW_PROVENANCE = {
+    "factory": (
+        "godot-3d-factory-export-evidence", 1434223918,
+        "codex/prism-route-trap-tension-20261029", SENTINEL,
+    ),
+    "sentinel_pre": (
+        "prism-route-3d-sentinel-revision-provisioner-pre", 1434261585,
+        "codex/e2e-belt-connection-20261027",
+        "0bfecf99fb92ce1f05fb15b81760909eb699444b",
+    ),
+    "sentinel_unsigned_qa": (
+        "prism-route-3d-sentinel-revision-makeappx-unsigned-qa", 1434261585,
+        "codex/e2e-belt-connection-20261027",
+        "0bfecf99fb92ce1f05fb15b81760909eb699444b",
+    ),
+}
 
 
 class ArtifactFreshnessError(ValueError):
@@ -73,6 +92,15 @@ def validate(snapshot, *, now=None):
                 type(workflow_run.get("id")) is not int or
                 workflow_run["id"] != run_id):
             raise ArtifactFreshnessError("artifact metadata anchor mismatch: " + role)
+        expected_name, repo_id, branch, head_sha = WORKFLOW_PROVENANCE[role]
+        if (item.get("name") != expected_name or
+                type(workflow_run.get("repository_id")) is not int or
+                workflow_run["repository_id"] != repo_id or
+                type(workflow_run.get("head_repository_id")) is not int or
+                workflow_run["head_repository_id"] != repo_id or
+                workflow_run.get("head_branch") != branch or
+                workflow_run.get("head_sha") != head_sha):
+            raise ArtifactFreshnessError("workflow provenance mismatch: " + role)
         if item.get("expired") is not False:
             raise ArtifactFreshnessError("expired or unknown artifact status: " + role)
         expiry = _timestamp(item.get("expires_at"))
