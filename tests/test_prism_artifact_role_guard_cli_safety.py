@@ -58,7 +58,7 @@ class SourceRoleReceiptCliSafetyTests(unittest.TestCase):
         self.assertFalse(result["store_submission_allowed"])
 
     def test_oversized_or_invalid_utf8_receipt_fails_closed(self):
-        for payload in (b" " * 65537, b"\\xff\\xfe"):
+        for payload in (b" " * 65537, bytes((255, 254))):
             with self.subTest(size=len(payload)):
                 with TemporaryDirectory() as tmp:
                     path = Path(tmp) / "bad.json"
