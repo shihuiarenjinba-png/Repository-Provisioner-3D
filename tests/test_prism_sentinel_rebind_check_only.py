@@ -57,6 +57,28 @@ class TestSentinelRebindCheckOnly(unittest.TestCase):
             self.assertEqual(result[key], "HOLD")
         self.assertFalse(result["store_submission_allowed"])
 
+    def test_independent_ui_reference_pfn_publisher_and_identity_name(self):
+        r, h = self.fresh()
+        capture = self.synthetic_capture()
+        keys = ("store_id", "reserved_display_name", "package_identity_name",
+                "publisher", "publisher_display_name", "pfn", "package_sid")
+        reference = {key: capture[key] for key in keys}
+        reference.update(reference_origin="partner_center_ui",
+                         reference_id="SYNTHETIC_SECOND_RECORD_NOT_AUTHENTICATED")
+        result = make_check_only(r, h, capture, comparison_reference=reference)
+        self.assertTrue(result["identity_fields_compared_to_reference"])
+        self.assertEqual(result["official_identity_cas"], "HOLD")
+        for key in keys:
+            with self.subTest(key=key), self.assertRaises(RebindError):
+                bad = dict(reference)
+                bad[key] = "DIFFERENT"
+                make_check_only(r, h, capture, comparison_reference=bad)
+        with self.assertRaises(RebindError):
+            make_check_only(r, h, comparison_reference=reference)
+        with self.assertRaises(RebindError):
+            make_check_only(r, h, capture,
+                            comparison_reference=dict(reference, reference_id=""))
+
     def test_live_artifact_wrong_source_digest_id_expiry_fail_closed(self):
         for path, value in (
             (("id",), 13068198139),
