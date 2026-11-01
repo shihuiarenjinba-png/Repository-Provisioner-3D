@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 from prism_sentinel_factory_receipt_contract import check as check_factory, ContractError
 from prism_sentinel_identity_preflight import (
     check as check_identity, PreflightError, EXPECTED, IDENTITY_MATCH,
@@ -21,7 +22,7 @@ def require(ok, message):
     if not ok:
         raise RebindError(message)
 
-def make_check_only(receipt, handoff, capture=None, live_artifact=None, comparison_reference=None):
+def make_check_only(receipt, handoff, capture=None, live_artifact=None, comparison_reference=None, now_utc=None):
     """Fail closed on drift. Return a machine-readable HOLD, never an approval."""
     try:
         factory = check_factory(receipt, handoff)
@@ -42,12 +43,21 @@ def make_check_only(receipt, handoff, capture=None, live_artifact=None, comparis
             require(type(live_artifact.get(key)) is type(expected) and
                     live_artifact[key] == expected, "live artifact drift: " + key)
         require(live_artifact.get("expired") is False, "Factory artifact expired")
+        # GitHub's expired=false can be stale or self-declared. Also compare
+        # the pinned expiry against the current UTC clock, fail-closed.
+        current = datetime.now(timezone.utc) if now_utc is None else now_utc
+        require(isinstance(current, datetime) and current.tzinfo is not None
+                and current.utcoffset() is not None,
+                "artifact check requires timezone-aware UTC time")
+        expiry = datetime.fromisoformat(a["expires_at"].replace("Z", "+00:00"))
+        require(current.astimezone(timezone.utc) < expiry,
+                "Factory artifact expired by UTC deadline")
         require(type(live_artifact.get("workflow_run")) is dict and
                 live_artifact["workflow_run"].get("head_sha") == EXPECTED["source_sha"],
                 "live workflow source mismatch")
         live = True
-    # The Factory receipt was independently byte-verified earlier. This
-    # adapter is only legal after check_factory has compared those exact bytes.
+    # check_factory compares the historical byte-audit receipt to pinned
+    # anchors; it does not re-download or hash ZIP bytes in this run.
     flat = dict(EXPECTED, fixture_identity=False, signature_present=False,
                 product_msix=False)
     try:
@@ -63,6 +73,11 @@ def make_check_only(receipt, handoff, capture=None, live_artifact=None, comparis
                 type(comparison_reference.get("reference_id")) is str and
                 bool(comparison_reference["reference_id"].strip()),
                 "missing independent UI reference provenance")
+        # Two labels for the same captured record are not an independent
+        # comparison. Both records remain unauthenticated and HOLD regardless.
+        require(comparison_reference["reference_id"].strip()
+                != capture["capture_reference"].strip(),
+                "UI comparison reuses capture reference")
         for key in ("store_id", "reserved_display_name", "package_identity_name",
                     "publisher", "publisher_display_name", "pfn", "package_sid"):
             val = comparison_reference.get(key)
@@ -83,6 +98,7 @@ def make_check_only(receipt, handoff, capture=None, live_artifact=None, comparis
         "factory_run_id": EXPECTED["factory_run_id"],
         "factory_artifact_id": EXPECTED["factory_artifact_id"],
         "factory_artifact_live_metadata_checked": live,
+        "factory_archive_bytes_verified_in_this_check": False,
         "exe_sha256": EXPECTED["exe_sha256"],
         "pck_sha256": EXPECTED["pck_sha256"],
         "registration_type": EXPECTED["registration_type"],
@@ -99,6 +115,7 @@ def make_check_only(receipt, handoff, capture=None, live_artifact=None, comparis
             "capture reference",
         ],
         "identity_fields_compared_to_reference": comparison_reference is not None,
+        "identity_comparison_records_distinct": comparison_reference is not None,
         "identity_capture_structurally_correlated":
             preflight["identity_fields_structurally_correlated"],
         "status": preflight["status"],
