@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0",
+  "receipt_type": "GAME_3D_SENTINEL_INDEPENDENT_ARCHIVE_CUSTODY_20261102",
+  "verified_at_utc": "2026-11-01T23:28:26Z",
+  "verification_method": "GitHub connected-account artifact ZIP download; independently hashed full local ZIP and all uncompressed members; zipfile.testzip CRC and parsed exact export manifest; no GitHub metadata substituted for bytes",
+  "product": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "source": {
+    "repository": "shihuiarenjinba-png/3d-game-factory",
+    "branch": "codex/prism-route-trap-tension-20261029",
+    "sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+    "request_id": "3d-prism-route-3d-e432d94ed0db",
+    "factory_build_head": "e432d94ed0db22878f61f1a8af140d7d7de2288f"
+  },
+  "artifact": {
+    "run_id": 40901053437,
+    "artifact_id": 12909162367,
+    "artifact_name": "godot-3d-factory-export-evidence",
+    "archive_bytes": 30880705,
+    "archive_sha256": "dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c",
+    "github_digest": "sha256:dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c",
+    "github_expired": false,
+    "expires_at": "2026-11-05T15:24:12Z",
+    "run_head_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f"
+  },
+  "members": {
+    "candidate.exe": {
+      "bytes": 84214784,
+      "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13"
+    },
+    "candidate.pck": {
+      "bytes": 71568,
+      "sha256": "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03"
+    },
+    "export-evidence.json": {
+      "bytes": 672,
+      "sha256": "c55db8c276919cc9792c02f2423ecc6e7b249ad83772e9e256de1fd412208103"
+    }
+  },
+  "manifest": {
+    "schema_version": 1,
+    "product_type": "GAME_3D",
+    "slug": "prism-route-3d",
+    "source_repository": "shihuiarenjinba-png/3d-game-factory",
+    "source_branch": "codex/prism-route-trap-tension-20261029",
+    "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+    "request_id": "3d-prism-route-3d-e432d94ed0db",
+    "factory_build_head": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+    "exe_path": "candidate.exe",
+    "exe_sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
+    "exe_size_bytes": 84214784,
+    "pck_path": "candidate.pck",
+    "pck_sha256": "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03",
+    "pck_size_bytes": 71568
+  },
+  "checks": {
+    "archive_sha_and_size": true,
+    "archive_digest_matches_github_metadata": true,
+    "zip_crc": true,
+    "exact_three_members": true,
+    "member_sha_and_size": true,
+    "manifest_source_request_build_head": true,
+    "manifest_exe_pck": true,
+    "legacy_pck_mismatch_detected": true
+  },
+  "legacy_revision": {
+    "source_sha": "15fdcb52e46e35e6de8e87c55af99719c21e09b9",
+    "pck_sha256": "2cd8af6496cf288bc3e6aef317e472b480f21d2052cbd4ae0cd171e6285ab1ef",
+    "pck_matches_sentinel": false,
+    "promotable": false,
+    "historical_identity_commit": "11417b75636ee18816028ffd5221884c4c9a9836",
+    "historical_identity_is_new_revision_cas": false
+  },
+  "route": {
+    "registration_type": "MSIX_OR_PWA_GAME",
+    "partner_center_selection": "MSIX or PWA game"
+  },
+  "downstream": {
+    "official_identity_cas": "HOLD",
+    "package_version": "HOLD",
+    "signed_product_msix": "HOLD",
+    "unsigned_qa_fixture_is_store_package": false,
+    "windows_all_auto_intake": "HOLD",
+    "local_windows": "DEFERRED_LOCAL_GATE",
+    "product_e2e": "HOLD",
+    "store_submission_allowed": false,
+    "second_3d_product_allowed": false
+  },
+  "limitations": "Actual archive bytes were independently downloaded and verified in this run. ZIP bytes are not stored in Git; this JSON receipt preserves digest/manifest evidence, not the 30.9MB binary. Old Identity is historical only. No Partner Center access, product signing, Store submission or Windows GUI/GPU validation."
+}
