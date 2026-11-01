@@ -6,6 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+from prism_20261101_source_gate import ANCHORS
 from prism_sentinel_identity_lineage import (
     HISTORICAL_REQUEST, HISTORICAL_SOURCE, SENTINEL_REQUEST, SENTINEL_SOURCE,
     IdentityLineageError, _read, inspect_lineage, main,
@@ -16,6 +17,10 @@ def sample():
     request = {
         "handoff_type": "GAME_3D_USER_ID_REQUEST", "product_name": "Prism Route 3D",
         "slug": "prism-route-3d", "source_sha": SENTINEL_SOURCE,
+        "schema_version": "1.0",
+        "factory_run_id": ANCHORS["factory"][1],
+        "factory_artifact_id": ANCHORS["factory"][0],
+        "artifact_freshness_recheck_required_before_consumption": True,
         "request_id": SENTINEL_REQUEST, "factory_build_head": SENTINEL_SOURCE,
         "registration_type": "MSIX_OR_PWA_GAME", "partner_center_selection": "MSIX or PWA game",
         "packaging_strategy": "GODOT_WINDOWS_EXE_PCK_TO_MAKEAPPX_STANDARD_MSIX",
@@ -35,6 +40,7 @@ def sample():
             "publisher_display_name", "pfn", "package_sid")},
         "historical_reference_not_current_approval": {
             "source_sha": HISTORICAL_SOURCE, "verified_for_new_source": False,
+            "identity_reference_commit": "11417b75636ee18816028ffd5221884c4c9a9836",
             "store_id": "9N95J2T57B41"},
         "identity_cas_handoff": {
             "target": "products/prism-route-3d/store/approved-identity.json",
@@ -119,6 +125,25 @@ class IdentityLineageTests(unittest.TestCase):
                 req[field] = value
                 with self.assertRaises(IdentityLineageError):
                     inspect_lineage(req, old)
+
+    def test_factory_run_artifact_and_history_substitution_rejected(self):
+        for field, value in (
+            ("factory_run_id", ANCHORS["sentinel_pre"][1]),
+            ("factory_run_id", True),
+            ("factory_artifact_id", ANCHORS["sentinel_pre"][0]),
+            ("factory_artifact_id", True),
+            ("artifact_freshness_recheck_required_before_consumption", False),
+            ("schema_version", "2.0"),
+        ):
+            with self.subTest(field=field, value=value):
+                req, old = sample()
+                req[field] = value
+                with self.assertRaises(IdentityLineageError):
+                    inspect_lineage(req, old)
+        req, old = sample()
+        req["historical_reference_not_current_approval"]["identity_reference_commit"] = "0" * 40
+        with self.assertRaises(IdentityLineageError):
+            inspect_lineage(req, old)
 
     def test_real_committed_user_id_request_is_still_hold(self):
         req_path = Path(__file__).resolve().parents[1] / "handoffs" / (
