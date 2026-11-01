@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "audit": "PRISM_SENTINEL_FOUR_REAL_ARTIFACTS_INDEPENDENT_RECHECK",
+  "observed_at": "2026-10-31T23:31:13.092816+00:00",
+  "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "request_id": "3d-prism-route-3d-e432d94ed0db",
+  "artifacts": {
+    "factory": {
+      "artifact_id": 12909162367,
+      "zip_bytes": 30880705,
+      "zip_sha256": "dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c",
+      "downloaded_bytes_match_github_digest": true
+    },
+    "pre": {
+      "artifact_id": 12961277866,
+      "zip_bytes": 2482,
+      "zip_sha256": "516f9dad3375ee8b4d6bc86b98b0542c3a140206de23b9badfe296c0f5a73b8c",
+      "downloaded_bytes_match_github_digest": true
+    },
+    "unsigned_qa": {
+      "artifact_id": 12961735943,
+      "zip_bytes": 31032520,
+      "zip_sha256": "d678c0ff7c014f86a3d4ccb6517a9eafa65b409016dc57a650ed3d017c2f3be2",
+      "downloaded_bytes_match_github_digest": true
+    },
+    "identity_reuse": {
+      "artifact_id": 12910285043,
+      "zip_bytes": 518,
+      "zip_sha256": "cda37728ad5c0596ed4c767433dd9558944e994a724b44ed79e79b24e289a10c",
+      "downloaded_bytes_match_github_digest": true
+    }
+  },
+  "exe": {
+    "bytes": 84214784,
+    "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
+    "msix_embedded_matches_factory": true
+  },
+  "pck": {
+    "bytes": 71568,
+    "sha256": "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03",
+    "msix_embedded_matches_factory": true
+  },
+  "msix": {
+    "bytes": 31084849,
+    "sha256": "45de4b28bb2dc966a96f7f1507e70d0e1d40f26b2079eee8de2b2fa6eacef8d1",
+    "manifest_identity": "Example.ThreeD.Fixture",
+    "manifest_publisher": "CN=Offline QA Fixture",
+    "capabilities": [
+      "runFullTrust"
+    ],
+    "signature_present": false,
+    "store_ready": false
+  },
+  "pre": {
+    "status": "HOLD",
+    "official_identity": "UNVERIFIED",
+    "github_return": "NOT_APPLIED",
+    "windows_all_auto_record_present": false
+  },
+  "identity_reuse": {
+    "status": "PENDING_INDEPENDENT_VERIFICATION",
+    "approved_package_version": null
+  },
+  "registration_type": "MSIX_OR_PWA_GAME",
+  "gates": {
+    "factory_and_godot_export": "PASS_REAL_BYTES",
+    "exe_pck_msix_correlation": "PASS_REAL_BYTES",
+    "provisioner_pre": "PASS_REAL_BYTES_HOLD",
+    "official_identity_cas": "HOLD",
+    "signed_post_identity_msix": "HOLD",
+    "windows_all_auto_intake": "HOLD",
+    "local_windows_gui_gpu_install": "DEFERRED_LOCAL_GATE",
+    "product_e2e": "HOLD"
+  },
+  "store_submission_allowed": false,
+  "note": "Four independently downloaded GitHub Actions artifact ZIPs were checked byte-for-byte in an isolated verifier. No official Partner Center CAS, signing, Windows intake or Store approval is implied."
+}

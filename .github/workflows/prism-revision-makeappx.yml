@@ -1,0 +1,54 @@
+name: Prism Route 3D Sentinel revision — real MakeAppx QA
+
+on:
+  push:
+    branches:
+      - codex/e2e-belt-connection-20261027
+    paths:
+      - .github/workflows/prism-revision-makeappx.yml
+      - tests/prism_revision_makeappx.py
+      - .github/workflows/prism-revision-provisioner.yml
+      - tests/test_prism_revision_pin_consistency.py
+      - tests/test_prism_sentinel_revision_handoff.py
+      - prism_revision_handoff_contract.py
+      - verify_prism_revision_bytes.py
+      - tests/test_verify_prism_revision_bytes.py
+      - tests/test_prism_revision_handoff_runtime.py
+      - handoffs/prism-route-3d-sentinel-revision-20261029.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sentinel-revision-makeappx:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: shihuiarenjinba-png/3d-build-qa
+          ref: e84c448e48105d15d2040f87fb279835ddd0119b
+          path: qa-code
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Authenticated revision Factory EXE/PCK to Windows SDK MakeAppx and tamper QA
+        run: python tests/prism_revision_makeappx.py
+      - name: Preserve unsigned revision MSIX and independent payload verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-route-3d-sentinel-revision-makeappx-unsigned-qa
+          path: |
+            revision-msix/prism-route-3d-sentinel-qa-unsigned.msix
+            revision-msix/makeappx-evidence.json
+          if-no-files-found: warn
+          retention-days: 5

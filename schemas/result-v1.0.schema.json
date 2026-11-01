@@ -63,7 +63,18 @@
       "type": [
         "object",
         "null"
-      ]
+      ],
+      "required": ["schema_version", "request_id", "product_type", "type", "source_factory", "source_repository", "source_branch", "source_sha", "slug", "expected_head_sha", "package_sha256", "package_family_name", "package_sid", "signature_status", "official_evidence_url", "operator_verified", "verified_by", "identity"],
+      "properties": {
+        "schema_version": {"const": 1}, "request_id": {"type": "string"},
+        "product_type": {"enum": ["APP", "GAME", "GAME_3D"]}, "type": {"enum": ["app", "game", "3d-game"]},
+        "source_factory": {"type": "string"}, "source_repository": {"type": "string"},
+        "source_branch": {"type": "string"}, "source_sha": {"type": "string"}, "slug": {"type": "string"},
+        "expected_head_sha": {"type": "string"}, "package_sha256": {"type": "string"},
+        "package_family_name": {"type": "string"}, "package_sid": {"type": "string"},
+        "signature_status": {"type": "string"}, "official_evidence_url": {"type": "string"},
+        "operator_verified": {"const": true}, "verified_by": {"type": "string"}, "identity": {"type": "object"}
+      }
     },
     "errors": {
       "type": "array",

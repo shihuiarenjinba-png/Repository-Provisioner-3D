@@ -11,7 +11,7 @@
     "product_type": {"enum": ["APP", "GAME", "GAME_3D"]},
     "source_factory": {"type": "string", "minLength": 1, "maxLength": 100},
     "source_repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
-    "source_branch": {"type": "string", "minLength": 1, "maxLength": 255},
+    "source_branch": {"type": "string", "pattern": "^codex/[A-Za-z0-9._/-]+$", "minLength": 7, "maxLength": 240},
     "source_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "slug": {"type": "string", "pattern": "^[a-z][a-z0-9-]{3,39}$"},
     "display_name": {"type": "string", "minLength": 1, "maxLength": 100},

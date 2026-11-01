@@ -1,0 +1,42 @@
+name: Prism Route 3D — real Godot payload MakeAppx QA
+
+on:
+  push:
+    branches:
+      - codex/e2e-belt-connection-20261027
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  makeappx-real-canary:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: shihuiarenjinba-png/3d-build-qa
+          ref: e84c448e48105d15d2040f87fb279835ddd0119b
+          path: qa-code
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Real canary EXE/PCK from authenticated Factory Artifact to MakeAppx and byte QA
+        run: python tests/canary_real_makeappx.py
+      - name: Retain unsigned real-canary MakeAppx evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-route-3d-real-makeappx-unsigned-not-store
+          path: |
+            canary-msix/prism-route-3d-qa-unsigned.msix
+            canary-msix/makeappx-evidence.json
+          if-no-files-found: error
+          retention-days: 5

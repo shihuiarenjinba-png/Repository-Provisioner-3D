@@ -54,6 +54,8 @@ def existing(overrides=None):
         "verified_by": official()["authenticated_account"],
         "evidence_url": official()["official_evidence_url"],
         "verified_source_sha": PINNED, "expected_head_sha": PINNED,
+        "source_sha": PINNED, "package_sha256": package()["sha256"],
+        "signature_status": package()["signature_status"],
         "local_package_sha256": package()["sha256"], "local_package_kind": "exe",
         "local_signature_status": "UNSIGNED",
         **{k: official()[k] for k in ("store_id", "name", "publisher", "version",

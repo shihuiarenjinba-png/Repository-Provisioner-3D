@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0",
+  "receipt_type": "PRISM_SENTINEL_INDEPENDENT_DOWNLOADED_ARTIFACT_BYTE_AUDIT",
+  "product": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "source_repository": "shihuiarenjinba-png/3d-game-factory",
+  "source_branch": "codex/prism-route-trap-tension-20261029",
+  "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "request_id": "3d-prism-route-3d-e432d94ed0db",
+  "verified_at_utc": "2026-10-30T12:22:06Z",
+  "verification_scope": "Independent download of 4 GitHub Actions artifact ZIPs; SHA-256/length/ZIP integrity, Factory EXE/PCK, new PRE job/result/receipt, new unsigned MSIX and embedded EXE/PCK, manifest and all 4 AppxBlockMap files verified with Python stdlib. Historical PCK diagnostic is a different older-source artifact and NOT correlated to the Sentinel revision.",
+  "artifacts": {
+    "factory": {
+      "repository": "shihuiarenjinba-png/3d-game-factory",
+      "run_id": 40901053437,
+      "id": 12909162367,
+      "bytes": 30880705,
+      "sha256": "dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c",
+      "expires_at": "2026-11-05T15:24:12Z"
+    },
+    "new_provisioner_pre": {
+      "repository": "shihuiarenjinba-png/Repository-Provisioner-3D",
+      "run_id": 41048385639,
+      "id": 12972784407,
+      "bytes": 2482,
+      "sha256": "f0f1bdfd321cda4d2415cc5fbe250e8f184dcbd2aa2d3549882a085235426cd3",
+      "expires_at": "2026-11-06T11:29:56Z"
+    },
+    "new_unsigned_makeappx": {
+      "repository": "shihuiarenjinba-png/Repository-Provisioner-3D",
+      "run_id": 41048385609,
+      "id": 12973885939,
+      "bytes": 31032520,
+      "sha256": "7cd2690049b1e6edb2da2c5183f2c4682a06b2e34165bb4ddbd54c3f526b9d8a",
+      "expires_at": "2026-11-04T11:29:35Z"
+    },
+    "historical_diagnostic_only": {
+      "repository": "shihuiarenjinba-png/Repository-Provisioner-3D",
+      "run_id": 41020681949,
+      "id": 12960748998,
+      "bytes": 13284,
+      "sha256": "94c98a8d3a545ff5591315cc21079630966e364ef7b74e5e64e87074a3343591",
+      "expires_at": "2026-10-31T07:33:07Z",
+      "source_relation": "NOT_NEW_SENTINEL_SOURCE"
+    }
+  },
+  "payload": {
+    "exe_sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
+    "exe_bytes": 84214784,
+    "pck_sha256": "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03",
+    "pck_bytes": 71568,
+    "unsigned_msix_sha256": "c380e68099bee861193e217a3e05c0b11d272656ab99fdef70f8f60e76a15e06",
+    "unsigned_msix_bytes": 31084849,
+    "embedded_exe_pck_sha256_matched": true,
+    "appx_blockmap_sha256_matched": true,
+    "appx_blockmap_file_count": 4,
+    "manifest_identity_name": "Example.ThreeD.Fixture",
+    "manifest_publisher": "CN=Offline QA Fixture",
+    "unsigned_qa_fixture_only": true
+  },
+  "pre_result": {
+    "status": "HOLD",
+    "factory_export_evidence": "PRE_IDENTITY_BYTES_CORRELATED",
+    "factory_build_head_matches_source": true,
+    "source_request_artifact_correlated": true,
+    "official_identity_status": "UNVERIFIED",
+    "github_return_status": "NOT_APPLIED",
+    "windows_all_auto_record": null
+  },
+  "registration_type": "MSIX_OR_PWA_GAME",
+  "partner_center_selection": "MSIX or PWA game",
+  "identity_return_target": "products/prism-route-3d/store/approved-identity.json",
+  "official_identity_cas_verified": false,
+  "package_version_approved": false,
+  "signed_post_identity_msix_verified": false,
+  "windows_all_auto_intake_verified": false,
+  "local_gpu_gui_install": "DEFERRED_LOCAL_GATE",
+  "store_submission_allowed": false,
+  "second_3d_product_allowed": false,
+  "product_e2e": "HOLD",
+  "limitations": [
+    "Independent byte audit is not a Windows install/GPU/GUI test or Microsoft certification.",
+    "No official Partner Center 7-field identity/CAS approval for the new source/request.",
+    "No approved package version, signed product MSIX or Windows-all-auto intake.",
+    "The historical PCK diagnostic is not the new revision's PCK.",
+    "This receipt does not automatically re-pin the existing canonical handoff snapshot; 36-minute owner must choose whether to adopt verified new PRE/QA artifacts."
+  ]
+}

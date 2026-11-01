@@ -1,0 +1,207 @@
+name: Prism Route 3D — live Factory provenance to PRE_IDENTITY
+
+on:
+  push:
+    branches:
+      - codex/e2e-belt-connection-20261027
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  real-canary-provisioner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GODOT_EXE: /tmp/godot-bin/Godot_v4.3-stable_linux.x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run full offline Provisioner regressions
+        run: python -m unittest discover -s tests -v
+      - name: Install official Godot 4.3 engine and Windows x64 templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 3 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip' -o /tmp/godot.zip
+          curl -fL --retry 3 --retry-delay 3 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz' -o /tmp/templates.tpz
+          mkdir -p /tmp/godot-bin /tmp/godot-tpl "$HOME/.local/share/godot/export_templates/4.3.stable"
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          unzip -q /tmp/templates.tpz -d /tmp/godot-tpl
+          cp -a /tmp/godot-tpl/templates/. "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          chmod +x "$GODOT_EXE"
+          test -s "$HOME/.local/share/godot/export_templates/4.3.stable/windows_release_x86_64.exe"
+      - name: Verify real Factory run and Artifact via authenticated GitHub API
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method GET /repos/shihuiarenjinba-png/3d-game-factory/actions/runs/40640951915 > /tmp/factory-run.json
+          gh api --method GET /repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/12795476435 > /tmp/factory-artifact.json
+          python - <<'PY'
+          import json
+          run=json.load(open('/tmp/factory-run.json'))
+          art=json.load(open('/tmp/factory-artifact.json'))
+          assert run['id']==40640951915 and run['status']=='completed' and run['conclusion']=='success'
+          assert run['head_sha']=='15fdcb52e46e35e6de8e87c55af99719c21e09b9'
+          assert run['head_branch']=='codex/3d-canary-prism-route-20261028'
+          assert art['id']==12795476435 and art['name']=='godot-3d-factory-export-evidence' and art['expired'] is False
+          assert art['workflow_run']['id']==run['id'] and art['digest'].startswith('sha256:')
+          print('PASS: independently authenticated Factory run and artifact metadata')
+          PY
+      - name: Prepare pinned real-canary Provisioner job
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          job=dict(schema_version="1.0",request_id="3d-prism-route-3d-15fdcb52e46e",
+            product_type="GAME_3D",source_factory="3d-game-factory",
+            source_repository="shihuiarenjinba-png/3d-game-factory",
+            source_branch="codex/3d-canary-prism-route-20261028",
+            source_sha="15fdcb52e46e35e6de8e87c55af99719c21e09b9",
+            slug="prism-route-3d",display_name="Prism Route 3D",
+            target_owner="shihuiarenjinba-png",dry_run=False,
+            requested_actions=["BUILD_WINDOWS","INSPECT_PACKAGE","LOOKUP_OFFICIAL_IDENTITY","PROPOSE_GITHUB_RETURN"])
+          open("canary-job.json","w").write(json.dumps(job,indent=2)+"\n")
+          PY
+      - name: Real Provisioner source clone, Godot export, authenticated Artifact download, byte comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python provisioner.py --input canary-job.json --output canary-result.json --factory-run-id 40640951915 --factory-artifact-id 12795476435
+          exit_code=$?
+          set -e
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from registration_router import user_id_request, STANDARD
+          result=json.loads(Path('canary-result.json').read_text())
+          print('Provisioner status:',result.get('status'),'next:',result.get('next_stage'))
+          print('Provisioner errors:',result.get('errors'))
+          evidence=result.get('factory_export_evidence') or {}
+          if evidence.get('status')!='PRE_IDENTITY_BYTES_CORRELATED':
+              raise SystemExit('HOLD: Provisioner did not prove independent real EXE/PCK provenance')
+          if result.get('status')!='HOLD' or result.get('official_identity',{}).get('status')!='UNVERIFIED':
+              raise SystemExit('HOLD: expected safe pre-Identity HOLD without official Store Identity')
+          if result.get('github_return',{}).get('status')!='NOT_APPLIED':
+              raise SystemExit('HOLD: GitHub return was unexpectedly applied')
+          job=json.loads(Path('canary-job.json').read_text())
+          request=user_id_request(job,evidence,strategy=STANDARD,builder='Windows SDK MakeAppx',output_kind='msix',gdk_config=False)
+          if request.get('status')!='USER_ID_REQUEST':
+              raise SystemExit('HOLD: USER_ID_REQUEST contract not ready')
+          Path('canary-user-id-request.json').write_text(json.dumps(request,ensure_ascii=False,indent=2)+'\n')
+          print('PASS: real Provisioner PRE_IDENTITY_BYTES_CORRELATED; official Identity remains HOLD')
+          print(json.dumps(request,ensure_ascii=False,indent=2))
+          PY
+      - name: Produce read-only 36-minute handoff HOLD receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python prism_check_only.py --handoff handoffs/prism-route-3d-partner-center-product-creation.json > canary-check-only.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path('canary-check-only.json').read_text(encoding='utf-8'))
+          assert r['mode'] == 'CHECK_ONLY_NO_SIDE_EFFECTS'
+          assert r['request_id'] == '3d-prism-route-3d-15fdcb52e46e'
+          assert r['immutable_source_sha'] == '15fdcb52e46e35e6de8e87c55af99719c21e09b9'
+          assert r['registration_type'] == 'MSIX_OR_PWA_GAME'
+          assert r['pre_identity_status'] == 'PRE_IDENTITY_READY'
+          assert r['product_e2e'] == 'HOLD'
+          assert r['post_identity_package_gate']['windows_all_auto_intake_allowed'] is False
+          assert r['post_identity_package_gate']['store_ready'] is False
+          assert r['digest_roles']['package_sha256'] is None
+          assert r['artifact_snapshot_freshness']['remote_artifact_retrieval_verified'] is False
+          print('PASS: independent read-only handoff contract receipt, still HOLD')
+          PY
+      - name: Compare independently fetched GitHub Actions metadata (still HOLD)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/prism-api
+          # Read the same versioned handoff that the validator checks. Do not
+          # hardcode older run/artifact IDs: they rotate after each real Canary.
+          handoff=handoffs/prism-route-3d-partner-center-product-creation.json
+          factory_run_id="$(jq -er '.factory_export_evidence.run_id | select(type == "number" and . > 0)' "$handoff")"
+          factory_artifact_id="$(jq -er '.factory_export_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
+          pre_run_id="$(jq -er '.provisioner_pre_identity_evidence.run_id | select(type == "number" and . > 0)' "$handoff")"
+          pre_artifact_id="$(jq -er '.provisioner_pre_identity_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
+          qa_run_id="$(jq -er '.real_makeappx_qa_evidence.run_id | select(type == "number" and . > 0)' "$handoff")"
+          qa_artifact_id="$(jq -er '.real_makeappx_qa_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
+          pck_artifact_id="$(jq -er '.independent_pck_diagnostic_evidence.artifact_id | select(type == "number" and . > 0)' "$handoff")"
+          source_sha="$(jq -er '.source_sha | select(test("^[0-9a-f]{40}$"))' "$handoff")"
+          observed_head="$(jq -er '.observed_factory_branch_head | select(test("^[0-9a-f]{40}$"))' "$handoff")"
+          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/actions/runs/$factory_run_id" > /tmp/prism-api/factory_run.json
+          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/$factory_artifact_id" > /tmp/prism-api/factory_artifact.json
+          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/$pre_run_id" > /tmp/prism-api/pre_run.json
+          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pre_artifact_id" > /tmp/prism-api/pre_artifact.json
+          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/runs/$qa_run_id" > /tmp/prism-api/qa_run.json
+          gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$qa_artifact_id" > /tmp/prism-api/qa_artifact.json
+          # This is an old-source, one-day diagnostic, never the Store PCK.
+          # Its expiry must not prevent live Factory/PRE/MakeAppx validation.
+          pck_expires="$(jq -er '.independent_pck_diagnostic_evidence.artifact_expires_at' "$handoff")"
+          if (( $(date -u +%s) < $(date -u -d "$pck_expires" +%s) )); then
+            gh api --method GET "/repos/shihuiarenjinba-png/Repository-Provisioner-3D/actions/artifacts/$pck_artifact_id" > /tmp/prism-api/pck_artifact.json
+          else
+            printf 'null\n' > /tmp/prism-api/pck_artifact.json
+            echo "SKIP: expired old-source PCK diagnostic (not Store payload)"
+          fi
+          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/compare/$source_sha...$observed_head" > /tmp/prism-api/factory_compare.json
+          # Compare is historical; also verify the current remote Factory HEAD.
+          gh api --method GET "/repos/shihuiarenjinba-png/3d-game-factory/branches/codex/3d-canary-prism-route-20261028" > /tmp/prism-api/factory_branch.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('/tmp/prism-api')
+          fields=('factory_run','factory_artifact','pre_run','pre_artifact',
+                  'qa_run','qa_artifact','pck_artifact','factory_compare',
+                  'factory_branch')
+          Path('canary-remote-input.json').write_text(
+              json.dumps({k:json.loads((root/(k+'.json')).read_text()) for k in fields}))
+          PY
+          python prism_remote_evidence.py --handoff handoffs/prism-route-3d-partner-center-product-creation.json --remote canary-remote-input.json > canary-remote-evidence.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('canary-remote-evidence.json').read_text())
+          assert r['metadata_comparison']=='PASS_CALLER_SUPPLIED_API_RESPONSES'
+          assert r['factory_branch_head_matched_snapshot'] is True
+          assert r['historical_pck_diagnostic_is_store_payload'] is False
+          assert r['historical_pck_diagnostic_metadata'] in (
+              'PASS_METADATA_ONLY', 'SKIPPED_EXPIRED_OLD_SOURCE')
+          assert r['product_e2e']=='HOLD'
+          assert r['signed_msix_verified'] is False
+          assert r['windows_all_auto_intake_verified'] is False
+          print('PASS: gh api run/artifact/compare metadata correlated; no Identity or Store claim')
+          PY
+          rm canary-remote-input.json
+
+      - name: Preserve PRE_IDENTITY receipt only (no Store credentials)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-route-3d-provisioner-pre-identity
+          path: |
+            canary-job.json
+            canary-result.json
+            canary-user-id-request.json
+            canary-check-only.json
+            canary-remote-evidence.json
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Preserve local re-export PCK for deterministic-byte diagnosis (QA only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-route-3d-independent-pck-diagnostic
+          path: .provisioner-work/game_3d/*/artifacts/candidate.pck
+          if-no-files-found: warn
+          retention-days: 1

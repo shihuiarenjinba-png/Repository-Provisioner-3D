@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0",
+  "audit": "PRISM_SENTINEL_INDEPENDENT_REAL_ARTIFACT_BYTE_AUDIT",
+  "observed_at": "2026-11-01T02:19:00+09:00",
+  "scope": "INDEPENDENT_CONNECTOR_DOWNLOAD_AND_ZIP_MEMBER_BYTE_COMPARISON_HOLD_ONLY",
+  "product": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "source_repository": "shihuiarenjinba-png/3d-game-factory",
+  "source_branch": "codex/prism-route-trap-tension-20261029",
+  "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "request_id": "3d-prism-route-3d-e432d94ed0db",
+  "provisioner_repository": "shihuiarenjinba-png/Repository-Provisioner-3D",
+  "provisioner_branch": "codex/e2e-belt-connection-20261027",
+  "provisioner_head_before_receipt": "8eb2a818f5168d96ddce4edf82d164e780757a4f",
+  "factory_artifact": {
+    "run_id": 40901053437,
+    "artifact_id": 12909162367,
+    "archive_size_bytes": 30880705,
+    "archive_sha256": "dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c",
+    "expires_at": "2026-11-05T15:24:12Z",
+    "exe": {
+      "size_bytes": 84214784,
+      "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13"
+    },
+    "pck": {
+      "size_bytes": 71568,
+      "sha256": "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03"
+    },
+    "factory_build_head": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+    "zip_sha_matches_github_metadata": true,
+    "manifest_matches_zip_members": true
+  },
+  "sentinel_unsigned_makeappx": {
+    "run_id": 41020501832,
+    "artifact_id": 12961735943,
+    "archive_size_bytes": 31032520,
+    "archive_sha256": "d678c0ff7c014f86a3d4ccb6517a9eafa65b409016dc57a650ed3d017c2f3be2",
+    "expires_at": "2026-11-04T07:31:03Z",
+    "msix_size_bytes": 31084849,
+    "msix_sha256": "45de4b28bb2dc966a96f7f1507e70d0e1d40f26b2079eee8de2b2fa6eacef8d1",
+    "embedded_exe_path": "Game/game.exe",
+    "embedded_pck_path": "Game/game.pck",
+    "embedded_exe_matches_factory_exact_bytes": true,
+    "embedded_pck_matches_factory_exact_bytes": true,
+    "qa_evidence_request_and_source_match": true,
+    "qa_evidence_msix_sha_matches_actual_bytes": true,
+    "manifest_identity_name": "Example.ThreeD.Fixture",
+    "manifest_publisher": "CN=Offline QA Fixture",
+    "manifest_version": "1.0.0.0",
+    "signed": false,
+    "store_ready": false
+  },
+  "latest_revision_pre": {
+    "run_id": 41214928252,
+    "artifact_id": 13047840574,
+    "archive_size_bytes": 4335,
+    "archive_sha256": "3200e0cfcc030e6e914acb408726699d9008189849c1910c27f5da6af3fdcd95",
+    "expires_at": "2026-11-07T15:28:38Z",
+    "receipt_status": "HOLD",
+    "historical_identity_guard": "HISTORICAL_IDENTITY_RECORD_CONSISTENT_HOLD_ONLY",
+    "official_identity_cas_verified": false,
+    "windows_all_auto_intake_verified": false
+  },
+  "registration_type": "MSIX_OR_PWA_GAME",
+  "partner_center_selection": "MSIX or PWA game",
+  "user_id_request_status": "REVERIFY_EXISTING_PRODUCT_IDENTITY",
+  "identity_return_target": "products/prism-route-3d/store/approved-identity.json",
+  "gates": {
+    "factory": "PASS_REAL_BYTES",
+    "godot_windows_export": "PASS_REAL_BYTES",
+    "exe_pck": "PASS_REAL_BYTES",
+    "provisioner": "PASS_REAL_REVISION_PRE",
+    "pre_identity": "PASS",
+    "unsigned_makeappx": "PASS_REAL_SENTINEL_BYTES_HOLD_ONLY",
+    "official_identity_cas": "HOLD",
+    "approved_package_version": "HOLD",
+    "signed_post_identity_msix": "HOLD",
+    "windows_all_auto_intake": "HOLD",
+    "local_gui_gpu_install": "DEFERRED_LOCAL_GATE",
+    "product_e2e": "HOLD"
+  },
+  "controls": {
+    "no_new_product": true,
+    "no_partner_center_write": true,
+    "no_store_submission": true,
+    "no_main_release_write": true,
+    "no_merge": true
+  },
+  "notes": [
+    "The unsigned MSIX belongs to Sentinel source e432d94, not historical 15fdcb52; old-source MakeAppx run 41214928183 is separate.",
+    "Independent PCK re-export remains non-byte-identical due to PackedScene identifier drift; only authenticated Factory PCK is canonical.",
+    "MSIX fixture identity cannot be promoted to official Store Identity. No signed MSIX or product E2E approval is implied.",
+    "All three ZIP files were downloaded and locally hashed independently of the GitHub Actions verifier."
+  ]
+}

@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -14,6 +15,8 @@ from package_identity_provisioner import (
     SourceManager, compare_package_identity, inspect_package, redact,
     windows_all_auto_record, _package_family_name, _windows_package_sid,
 )
+
+from test_godot_pe_structure import fake_pe_x64
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
@@ -99,7 +102,7 @@ class FakeBuilder:
         path = output_dir / ("candidate.msix" if self.artifact_kind == "msix" else "candidate.exe")
         if self.artifact_kind == "msix":
             return make_msix(path, name=self.name)
-        path.write_bytes(b"MZ-not-a-real-binary")
+        path.write_bytes(fake_pe_x64(b"-builder"))
         return path
 
 
@@ -128,6 +131,31 @@ class FakeGitHub:
         return dict(self.result)
 
 
+class FakeFactoryTransport:
+    def __init__(self, error=None):
+        self.error, self.calls = error, 0
+
+    def verify(self, _job, _package, *, run_id, artifact_id, work_root):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        if run_id != 123 or artifact_id != 456:
+            raise HoldError("fixture requires explicit authenticated artifact IDs")
+        # Fixture transport supplies the same canonical-payload contract as
+        # authenticated transport, without claiming any live GitHub evidence.
+        dest = work_root / "authenticated-factory-payload"
+        dest.mkdir(parents=True, exist_ok=True)
+        canonical = dest / "candidate.exe"
+        shutil.copyfile(_package["path"], canonical)
+        return {"status": "PRE_IDENTITY_BYTES_CORRELATED",
+                "evidence_scope": "FACTORY_ARTIFACT_BYTES_NOT_STORE_E2E",
+                "factory_build_head": "b" * 40, "post_identity_ready": False,
+                "payload_authority": "AUTHENTICATED_FACTORY_ARTIFACT",
+                "canonical_package_path": str(canonical),
+                "exe_sha256": _package["sha256"],
+                "external_pck_sha256": None}
+
+
 class ContractValidationTests(unittest.TestCase):
     def test_current_3d_factory_branch_is_pinned(self):
         self.assertEqual(config().source_branch, "codex/3d-real-msix-build-path-20261027")
@@ -146,6 +174,12 @@ class ContractValidationTests(unittest.TestCase):
     def test_wrong_return_branch_is_hold(self):
         with self.assertRaises(HoldError):
             Job.validate(job(source_branch="main"), config())
+    def test_other_safe_codex_work_branch_is_allowed(self):
+        self.assertEqual(Job.validate(job(source_branch="codex/product/sample-product"), config()).source_branch,
+                         "codex/product/sample-product")
+    def test_unsafe_codex_work_branch_is_hold(self):
+        with self.assertRaises(HoldError):
+            Job.validate(job(source_branch="codex/../main"), config())
     def test_placeholder_sha_is_hold(self):
         with self.assertRaises(HoldError):
             Job.validate(job(source_sha="0" * 40), config())
@@ -181,6 +215,19 @@ class PackageInspectionTests(unittest.TestCase):
             result = inspect_package(path)
         self.assertIsNone(result["package_identity"])
         self.assertEqual(result["kind"], "exe")
+    def test_3d_export_reports_external_pck_bytes_and_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "candidate.exe"
+            pck = Path(tmp) / "candidate.pck"
+            exe.write_bytes(fake_pe_x64(b"-real-export-fixture"))
+            pck.write_bytes(b"GDPC-real-pck-fixture")
+            result = inspect_package(exe, godot_export=True)
+            self.assertEqual(result["godot_export"]["exe_sha256"], result["sha256"])
+            self.assertEqual(result["godot_export"]["external_pck_sha256"],
+                             __import__("hashlib").sha256(pck.read_bytes()).hexdigest())
+            self.assertEqual(result["godot_export"]["external_pck_size_bytes"], pck.stat().st_size)
+            self.assertEqual(result["godot_export"]["evidence_scope"], "LOCAL_EXPORT_NOT_INDEPENDENT")
+
     def test_invalid_msix_is_hold(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "a.msix"
@@ -210,7 +257,9 @@ class IdentityEvidenceTests(unittest.TestCase):
                 OfficialIdentityProvider(path).lookup(Job.validate(job(), config()))
     def test_package_identity_mismatch_is_conflict(self):
         with self.assertRaises(ConflictError):
-            compare_package_identity({"kind": "msix", "package_identity": "Other", "publisher": "CN=Test Publisher", "version": "1.2.3.4", "package_family_name": None, "package_sid": None}, evidence(), config().product_type)
+            compare_package_identity({"kind": "msix", "package_identity": "Other", "publisher": "CN=Test Publisher",
+                                      "version": "1.2.3.4", "package_family_name": evidence()["package_family_name"],
+                                      "package_sid": evidence()["package_sid"]}, evidence(), config().product_type)
     def test_3d_exe_defers_identity_match_to_factory_msix(self):
         result = compare_package_identity(local_package("exe"), evidence(), config().product_type)
         self.assertEqual(result, "DEFERRED_TO_FACTORY_MSIX")
@@ -224,9 +273,59 @@ class IdentityEvidenceTests(unittest.TestCase):
         self.assertEqual(contract["source_branch"], config().source_branch)
         self.assertEqual(contract["source_sha"], SHA)
         self.assertEqual(contract["slug"], "sample-product")
+        # A pre-Identity Godot EXE must never be advertised as a Store MSIX.
+        self.assertIsNone(contract["package_sha256"])
+        self.assertEqual(contract["package_sha256_kind"], "POST_IDENTITY_MSIX_ONLY")
+        self.assertEqual(contract["pre_identity_exe_sha256"], "d" * 64)
+        self.assertIsNone(contract["msix_package_sha256"])
+        self.assertEqual(contract["intake_status"], "HOLD_PRE_MSIX")
+        self.assertFalse(contract["store_ready"])
+        self.assertIsNone(contract["identity_cas_receipt"])
+        self.assertEqual(contract["package_version_gate"], "HOLD_NO_APPROVED_POST_IDENTITY_VERSION")
+        self.assertIsNone(contract["post_identity_msix_version"])
+        self.assertIsNone(contract["post_identity_version_approval_receipt"])
+        self.assertEqual(contract["package_family_name"], evidence()["package_family_name"])
+        self.assertEqual(contract["package_sid"], evidence()["package_sid"])
+        self.assertEqual(contract["signature_status"], "NOT_APPLICABLE_PRE_MSIX")
+        self.assertEqual(contract["local_signature_status"], "UNSIGNED")
         self.assertEqual(contract["local_package_sha256"], "d" * 64)
         self.assertEqual(contract["identity"]["package_sid"], evidence()["package_sid"])
         self.assertTrue(contract["operator_verified"])
+
+
+    def test_3d_msix_candidate_is_not_intake_ready_without_cas_version_and_qa(self):
+        contract = windows_all_auto_record(Job.validate(job(), config()), evidence(), local_package("msix"))
+        self.assertIsNone(contract["package_sha256"])
+        self.assertEqual(contract["package_sha256_kind"], "POST_IDENTITY_MSIX_ONLY")
+        self.assertEqual(contract["msix_package_sha256"], "d" * 64)
+        self.assertIsNone(contract["pre_identity_exe_sha256"])
+        self.assertEqual(contract["post_identity_msix_version"], "1.2.3.4")
+        self.assertEqual(contract["package_version_gate"], "HOLD_NO_APPROVED_POST_IDENTITY_VERSION")
+        self.assertIsNone(contract["post_identity_version_approval_receipt"])
+        self.assertIsNone(contract["post_identity_msix_qa_receipt"])
+        self.assertIsNone(contract["post_identity_signature_verification_receipt"])
+        self.assertIsNone(contract["identity_cas_receipt"])
+        self.assertEqual(contract["intake_status"], "HOLD_CAS_VERSION_SIGNATURE_QA")
+        self.assertFalse(contract["store_ready"])
+        self.assertEqual(contract["local_package_kind"], "msix")
+        self.assertEqual(contract["local_package_sha256"], "d" * 64)
+        self.assertEqual(contract["signature_status"], "UNSIGNED")
+
+    def test_3d_appx_is_not_mistaken_for_approved_msix(self):
+        contract = windows_all_auto_record(Job.validate(job(), config()), evidence(), local_package("appx"))
+        self.assertIsNone(contract["package_sha256"])
+        self.assertIsNone(contract["msix_package_sha256"])
+        self.assertIsNone(contract["post_identity_msix_version"])
+        self.assertEqual(contract["intake_status"], "HOLD_UNSUPPORTED_3D_PACKAGE_KIND")
+        self.assertFalse(contract["store_ready"])
+
+    def test_pre_identity_exe_never_has_msix_sha_even_with_official_reference(self):
+        contract = windows_all_auto_record(Job.validate(job(), config()), evidence(), local_package("exe"))
+        self.assertIsNone(contract["package_sha256"])
+        self.assertEqual(contract["pre_identity_exe_sha256"], contract["local_package_sha256"])
+        self.assertNotEqual(contract["signature_status"], contract["local_signature_status"])
+        self.assertEqual(contract["intake_status"], "HOLD_PRE_MSIX")
+        self.assertIsNone(contract["identity_cas_receipt"])
 
 
 class GitHubReturnTests(unittest.TestCase):
@@ -272,12 +371,28 @@ class GitHubReturnTests(unittest.TestCase):
         with self.assertRaises(ConflictError):
             GitHubReturnClient(existing).return_identity(Job.validate(job(), config()), config(), evidence(), local_package("exe"), True)
 
+    def test_job_work_branch_drives_ref_read_and_atomic_write(self):
+        selected = "codex/product/sample-product"
+        seen = []
+
+        def api(endpoint, body=None, allow_missing=False):
+            seen.append((endpoint, body))
+            return self.api(endpoint, body, allow_missing)
+
+        result = GitHubReturnClient(api).return_identity(
+            Job.validate(job(source_branch=selected), config()), config(), evidence(), local_package("exe"), True)
+        self.assertEqual(result["branch"], selected)
+        self.assertIn("git/ref/heads/" + selected, seen[0][0])
+        graphql = next(body for endpoint, body in seen if endpoint == "graphql")
+        self.assertEqual(graphql["variables"]["input"]["branch"]["branchName"], selected)
+
 
 class OrchestratorTests(unittest.TestCase):
-    def runner(self, root, source=None, builder=None, identity=None, github=None):
+    def runner(self, root, source=None, builder=None, identity=None, github=None, factory_transport=None):
         return Provisioner(config(), Path(root) / "state", Path(root) / "work",
                            source=source or FakeSource(), builder=builder or FakeBuilder(),
-                           identity=identity or FakeIdentity(), github=github or FakeGitHub())
+                           identity=identity or FakeIdentity(), github=github or FakeGitHub(),
+                           factory_transport=factory_transport)
 
     def test_dry_run_has_no_external_side_effect(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -317,6 +432,9 @@ class OrchestratorTests(unittest.TestCase):
             runner.identity = FakeIdentity()
             second = runner.run(job(), apply=True)
         self.assertEqual(first["status"], "HOLD")
+        self.assertEqual(first["package"]["status"], "INSPECTED")
+        self.assertRegex(first["package"]["sha256"], r"^[0-9a-f]{64}$")
+        self.assertIsNone(first["windows_all_auto_record"])
         self.assertEqual(second["status"], "COMPLETED")
     def test_retryable_github_failure_is_distinct(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -328,11 +446,48 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(result["status"], "CONFLICT")
     def test_3d_exe_only_build_can_return_identity_for_factory_msix(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe")).run(job(), apply=True)
+            transport = FakeFactoryTransport()
+            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe"),
+                                 factory_transport=transport).run(
+                                     job(), apply=True, factory_run_id=123, factory_artifact_id=456)
         self.assertEqual(result["status"], "COMPLETED")
+        self.assertEqual(transport.calls, 1)
+        self.assertEqual(result["factory_export_evidence"]["status"], "PRE_IDENTITY_BYTES_CORRELATED")
         self.assertEqual(result["official_identity"]["package_comparison"], "DEFERRED_TO_FACTORY_MSIX")
         self.assertRegex(result["package"]["sha256"], r"^[0-9a-f]{64}$")
         self.assertEqual(result["windows_all_auto_record"]["request_id"], "req-0001")
+
+    def test_3d_exe_without_artifact_ids_holds_before_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            identity = FakeIdentity()
+            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe"),
+                                 identity=identity).run(job(), apply=True)
+        self.assertEqual(result["status"], "HOLD")
+        self.assertIn("--factory-run-id", result["errors"][0])
+        self.assertEqual(identity.calls, 0)
+        self.assertEqual(result["package"]["status"], "INSPECTED")
+        self.assertIsNone(result["factory_export_evidence"])
+
+    def test_3d_exe_provenance_mismatch_holds_before_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            identity = FakeIdentity()
+            transport = FakeFactoryTransport(error=HoldError("EXE mismatch"))
+            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe"),
+                                 identity=identity, factory_transport=transport).run(
+                                     job(), apply=True, factory_run_id=123, factory_artifact_id=456)
+        self.assertEqual(result["status"], "HOLD")
+        self.assertEqual(identity.calls, 0)
+        self.assertIsNone(result["factory_export_evidence"])
+
+    def test_3d_verified_provenance_survives_identity_hold(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            identity = FakeIdentity(error=HoldError("operator Identity missing"))
+            result = self.runner(tmp, builder=FakeBuilder(artifact_kind="exe"),
+                                 identity=identity, factory_transport=FakeFactoryTransport()).run(
+                                     job(), apply=True, factory_run_id=123, factory_artifact_id=456)
+        self.assertEqual(result["status"], "HOLD")
+        self.assertEqual(result["factory_export_evidence"]["status"], "PRE_IDENTITY_BYTES_CORRELATED")
+        self.assertIsNone(result["windows_all_auto_record"])
     def test_type_state_is_namespaced(self):
         with tempfile.TemporaryDirectory() as tmp:
             runner = self.runner(tmp)

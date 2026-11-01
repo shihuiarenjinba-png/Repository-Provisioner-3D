@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "record_type": "GODOT_4_3_PACKEDSCENE_IDENTIFIER_SOURCE_AUDIT",
+  "recorded_at": "2026-10-31T19:27:48+09:00",
+  "product": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "source_branch": "codex/prism-route-trap-tension-20261029",
+  "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "request_id": "3d-prism-route-3d-e432d94ed0db",
+  "provisioner_base_head": "6174899e684dfeb093ff7b16545e623ca922e56a",
+  "factory_artifact_id": 12909162367,
+  "engine_version": "Godot 4.3 stable",
+  "engine_source_evidence": [
+    {
+      "path": "editor/export/editor_export_platform.cpp",
+      "lines": "812-822",
+      "url": "https://github.com/godotengine/godot/blob/4.3-stable/editor/export/editor_export_platform.cpp#L812-L822",
+      "observation": "TSCN to SCN export repacks a fresh PackedScene and saves the resulting binary resource"
+    },
+    {
+      "path": "core/io/resource_format_binary.cpp",
+      "lines": "2302-2318",
+      "url": "https://github.com/godotengine/godot/blob/4.3-stable/core/io/resource_format_binary.cpp#L2302-L2318",
+      "observation": "Built-in resources lacking scene_unique_id receive ClassName_ plus Resource::generate_scene_unique_id() during binary serialization"
+    },
+    {
+      "path": "core/io/resource.cpp",
+      "lines": "101-120",
+      "url": "https://github.com/godotengine/godot/blob/4.3-stable/core/io/resource.cpp#L101-L120",
+      "observation": "generate_scene_unique_id uses clock/ticks and Math::rand() to produce a five-character identifier"
+    }
+  ],
+  "observed_artifact_evidence": {
+    "factory_pck_sha256": "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03",
+    "pck_member_count": 14,
+    "unchanged_members": 13,
+    "changed_members": 1,
+    "changed_member": "compiled main.scn (629 bytes)",
+    "changed_byte_count": 5,
+    "first_changed_offset": 255,
+    "factory_identifier": "PackedScene_a5gy0",
+    "independent_identifier": "PackedScene_uymax",
+    "independent_uid_probe_result": "Adding the same explicit top-level TSCN uid to independent clean exports did not eliminate PackedScene identifier drift",
+    "evidence_receipts": [
+      "https://github.com/shihuiarenjinba-png/Repository-Provisioner-3D/blob/e1166da630ac8abf117dcecb578e3b8da442f39a/handoffs/prism-route-3d-sentinel-compiled-scene-byte-diff-20261031.json",
+      "https://github.com/shihuiarenjinba-png/Repository-Provisioner-3D/blob/6174899e684dfeb093ff7b16545e623ca922e56a/handoffs/prism-route-3d-sentinel-uid-determinism-probe-20261031.json"
+    ]
+  },
+  "finding": "Engine source directly explains why a generated five-character PackedScene resource identifier can vary across independent exports. This matches the observed five-byte binary difference. The exact call chain for this particular main.scn is not yet instrumented, so causality at this resource instance and full runtime semantic equivalence remain unproven.",
+  "recommended_gate_policy": "Use the authenticated Factory EXE/PCK as immutable packaging authority. Treat independent re-export byte mismatch as a diagnostic, not permission to substitute a different PCK. Require exact Factory PCK hash in the actual MSIX payload and preserve independent provenance checks. Never turn normalized or scene-ID-only similarity into Store approval.",
+  "recommended_next_experiment": "If strict reproducible independent export is required, instrument scene_unique_id immediately before and after SCN repack/save in an isolated Godot 4.3 debug build or controlled export plugin; do not mutate fixed Factory source or canonical PCK.",
+  "registration_type": "MSIX_OR_PWA_GAME",
+  "partner_center_selection": "MSIX or PWA game",
+  "identity_return_target": "products/prism-route-3d/store/approved-identity.json",
+  "official_identity_cas_verified": false,
+  "approved_package_version": null,
+  "signed_store_msix_verified": false,
+  "windows_all_auto_intake_verified": false,
+  "local_gui_gpu_install": "DEFERRED_LOCAL_GATE",
+  "reproducible_export_approved": false,
+  "store_submission_allowed": false,
+  "product_e2e": "HOLD",
+  "safety": {
+    "no_main_or_release_change": true,
+    "no_store_write": true,
+    "no_second_3d_product": true,
+    "canonical_factory_artifact_unchanged": true
+  }
+}

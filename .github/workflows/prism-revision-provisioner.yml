@@ -1,0 +1,353 @@
+name: Prism Route 3D revision — authenticated Factory to Provisioner PRE
+
+on:
+  push:
+    branches:
+      - codex/e2e-belt-connection-20261027
+    paths:
+      - .github/workflows/prism-revision-provisioner.yml
+      - .github/workflows/prism-revision-makeappx.yml
+      - tests/prism_revision_makeappx.py
+      - tests/test_prism_revision_pin_consistency.py
+      - tests/test_prism_sentinel_revision_handoff.py
+      - prism_revision_handoff_contract.py
+      - verify_prism_revision_live.py
+      - tests/test_verify_prism_revision_live.py
+      - verify_prism_revision_bytes.py
+      - godot_pck_diff.py
+      - tests/test_godot_pck_diff.py
+      - tests/test_verify_prism_revision_bytes.py
+      - tests/test_prism_revision_handoff_runtime.py
+      - prism_identity_provenance.py
+      - tests/test_prism_identity_provenance.py
+      - handoffs/prism-route-3d-sentinel-revision-20261029.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prism-revision-pre:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GODOT_EXE: /tmp/godot-bin/Godot_v4.3-stable_linux.x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline regression before real revision validation
+        run: python -m unittest discover -s tests -v
+      - name: Live GitHub handoff verification (read-only, never Store-ready)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python verify_prism_revision_live.py > /tmp/prism-live-metadata-receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt=json.loads(Path('/tmp/prism-live-metadata-receipt.json').read_text())
+          assert receipt['status']=='GITHUB_METADATA_MATCH_HOLD_PAYLOAD_NOT_VERIFIED'
+          # The old-source diagnostic expires independently of the real
+          # Sentinel Factory/PRE/MSIX artifacts. Verify exact coverage in
+          # both states without treating an expired diagnostic as live proof.
+          required=['factory','provisioner_pre','unsigned_makeappx']
+          historical='independent_pck_diagnostic'
+          skipped=receipt['expired_historical_diagnostics_skipped']
+          assert skipped in ([],[historical])
+          assert receipt['github_metadata_checked']==(
+            required if skipped else required+[historical]
+          )
+          assert receipt['historical_pck_diagnostic_expired'] is bool(skipped)
+          assert receipt['historical_pck_diagnostic_is_new_source_payload'] is False
+          assert receipt['product_e2e']=='HOLD'
+          assert receipt['store_submission_allowed'] is False
+          assert receipt['artifact_zip_bytes_verified'] is False
+          assert receipt['pinned_verifier_job_authenticated'] is True
+          assert receipt['pinned_verifier_step_authenticated'] is True
+          assert receipt['new_output_artifact_bytes_reverified'] is False
+          assert receipt['official_identity_cas_verified'] is False
+          print('PASS: authenticated GitHub metadata matched; payload, Identity and E2E remain HOLD')
+          PY
+      - name: Authenticated real Factory and unsigned MSIX byte verification (HOLD-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python verify_prism_revision_bytes.py > /tmp/prism-live-byte-receipt.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('/tmp/prism-live-byte-receipt.json').read_text())
+          assert r['status']=='FACTORY_AND_UNSIGNED_MSIX_BYTES_CORRELATED_HOLD_IDENTITY'
+          assert r['artifact_zip_bytes_verified'] is True
+          assert r['inner_exe_pck_msix_verified'] is True
+          assert r['official_identity_cas_verified'] is False
+          assert r['signature_verified'] is False
+          assert r['windows_all_auto_intake_verified'] is False
+          assert r['store_submission_allowed'] is False
+          assert r['product_e2e']=='HOLD'
+          print('PASS: real Factory ZIP, EXE/PCK and unsigned MSIX payload bytes match; Identity and E2E remain HOLD')
+          PY
+      - name: Install official Godot 4.3 with Windows x64 export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 --retry-delay 3 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip' -o /tmp/godot.zip
+          curl -fL --retry 3 --retry-delay 3 'https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz' -o /tmp/templates.tpz
+          mkdir -p /tmp/godot-bin /tmp/godot-tpl "$HOME/.local/share/godot/export_templates/4.3.stable"
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          unzip -q /tmp/templates.tpz -d /tmp/godot-tpl
+          cp -a /tmp/godot-tpl/templates/. "$HOME/.local/share/godot/export_templates/4.3.stable/"
+          chmod +x "$GODOT_EXE"
+          test -s "$HOME/.local/share/godot/export_templates/4.3.stable/windows_release_x86_64.exe"
+      - name: Prepare new immutable revision request and branch-specific config
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          sha='e432d94ed0db22878f61f1a8af140d7d7de2288f'
+          branch='codex/prism-route-trap-tension-20261029'
+          config=json.loads(Path('config.json').read_text())
+          config['source_branch']=branch
+          Path('revision-config.json').write_text(json.dumps(config,indent=2)+'\n')
+          job=dict(schema_version='1.0',request_id='3d-prism-route-3d-'+sha[:12],
+            product_type='GAME_3D',source_factory='3d-game-factory',
+            source_repository='shihuiarenjinba-png/3d-game-factory',
+            source_branch=branch,source_sha=sha,slug='prism-route-3d',
+            display_name='Prism Route 3D',target_owner='shihuiarenjinba-png',
+            dry_run=False,requested_actions=['BUILD_WINDOWS','INSPECT_PACKAGE','LOOKUP_OFFICIAL_IDENTITY','PROPOSE_GITHUB_RETURN'])
+          Path('revision-job.json').write_text(json.dumps(job,indent=2)+'\n')
+          PY
+      - name: Authenticated real Factory run and revision Artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api /repos/shihuiarenjinba-png/3d-game-factory/actions/runs/40901053437 > /tmp/revision-factory-run.json
+          gh api /repos/shihuiarenjinba-png/3d-game-factory/actions/artifacts/12909162367 > /tmp/revision-factory-artifact.json
+          python - <<'PY'
+          import json
+          run=json.load(open('/tmp/revision-factory-run.json'))
+          art=json.load(open('/tmp/revision-factory-artifact.json'))
+          sha='e432d94ed0db22878f61f1a8af140d7d7de2288f'
+          assert run['status']=='completed' and run['conclusion']=='success'
+          assert run['head_sha']==sha and run['head_branch']=='codex/prism-route-trap-tension-20261029'
+          assert art['id']==12909162367 and art['workflow_run']['id']==run['id']
+          assert art['name']=='godot-3d-factory-export-evidence' and art['expired'] is False
+          assert art['workflow_run']['head_sha']==sha
+          print('PASS: independently authenticated revision Factory run and artifact metadata')
+          PY
+      - name: Real Provisioner independent Godot export and Factory EXE/PCK byte correlation
+        shell: bash
+        run: |
+          set -euo pipefail
+          # A safe PRE_IDENTITY HOLD intentionally exits 2; inspect the JSON
+          # rather than mistaking that documented gate for an infrastructure failure.
+          set +e
+          python provisioner.py --config revision-config.json --input revision-job.json --output revision-result.json --factory-run-id 40901053437 --factory-artifact-id 12909162367
+          code=$?
+          set -e
+          if [ "$code" -ne 2 ]; then
+            echo "HOLD: expected PRE_IDENTITY exit 2, got $code"
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          job=json.loads(Path('revision-job.json').read_text())
+          result=json.loads(Path('revision-result.json').read_text())
+          ev=result.get('factory_export_evidence') or {}
+          assert result['status']=='HOLD',result.get('errors')
+          assert ev.get('status')=='PRE_IDENTITY_BYTES_CORRELATED',ev
+          assert ev.get('source_sha')==job['source_sha']
+          assert ev.get('request_id')==job['request_id']
+          assert ev.get('factory_build_head')==job['source_sha']
+          assert ev.get('payload_authority')=='AUTHENTICATED_FACTORY_ARTIFACT'
+          assert result['official_identity']['status']=='UNVERIFIED'
+          assert result['github_return']['status']=='NOT_APPLIED'
+          print('PASS: real revision Factory->Provisioner PRE byte correlation; no Store package claim')
+          PY
+      - name: Diagnose Factory vs independent local Godot PCK members (HOLD-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+          result=json.loads(Path('revision-result.json').read_text())
+          evidence=result.get('factory_export_evidence') or {}
+          assert result['status']=='HOLD'
+          assert evidence.get('status')=='PRE_IDENTITY_BYTES_CORRELATED'
+          assert evidence.get('payload_authority')=='AUTHENTICATED_FACTORY_ARTIFACT'
+          canonical=Path(evidence['canonical_package_path']).resolve(strict=True)
+          assert canonical.name=='candidate.exe'
+          assert canonical.parent.name=='authenticated-factory-payload'
+          assert canonical.parent.parent.name=='factory-evidence'
+          root=canonical.parent.parent.parent
+          factory=canonical.with_suffix('.pck')
+          local=(root/'artifacts'/'candidate.pck').resolve(strict=True)
+          assert factory.is_file() and local.is_file()
+          subprocess.run([sys.executable,'godot_pck_diff.py',
+            '--factory',str(factory),'--local',str(local),
+            '--output','revision-pck-diagnostic.json'],check=True)
+          report=json.loads(Path('revision-pck-diagnostic.json').read_text())
+          assert report['diagnostic_status'] in (
+            'BYTE_IDENTICAL','MEMBERS_IDENTICAL_CONTAINER_DIFF',
+            'MEMBER_CONTENT_DIFF','INSPECTION_UNAVAILABLE')
+          assert report['reproducible_export_approved'] is False
+          assert report['official_identity_cas_verified'] is False
+          assert report['store_submission_allowed'] is False
+          assert report['product_e2e']=='HOLD'
+          print('PCK_DIAGNOSTIC_STATUS='+report['diagnostic_status'])
+          print('PCK_CHANGED_MEMBERS='+str(report.get('changed_count','UNKNOWN')))
+          PY
+      - name: Isolated Godot scene UID determinism probe (diagnostic-only; source unchanged)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          import shutil
+          import subprocess
+          import tempfile
+          from pathlib import Path
+          from godot_pck_diff import compare_pcks
+
+          output = Path("revision-scene-uid-probe.json")
+          receipt = {
+              "schema_version": 1,
+              "product": "Prism Route 3D",
+              "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+              "request_id": "3d-prism-route-3d-e432d94ed0db",
+              "scope": "TEMPORARY_ISOLATED_COPIES_ONLY",
+              "pinned_source_modified": False,
+              "factory_artifact_modified": False,
+              "canonical_payload": "AUTHENTICATED_FACTORY_ARTIFACT",
+              "reproducible_export_approved": False,
+              "official_identity_cas_verified": False,
+              "store_submission_allowed": False,
+              "product_e2e": "HOLD",
+          }
+          try:
+              result = json.loads(Path("revision-result.json").read_text())
+              evidence = result["factory_export_evidence"]
+              assert result["status"] == "HOLD"
+              assert evidence["status"] == "PRE_IDENTITY_BYTES_CORRELATED"
+              canonical = Path(evidence["canonical_package_path"]).resolve(strict=True)
+              assert canonical.name == "candidate.exe"
+              assert canonical.parent.name == "authenticated-factory-payload"
+              assert canonical.parent.parent.name == "factory-evidence"
+              source = canonical.parent.parent.parent / "source" / "products" / "prism-route-3d"
+              source = source.resolve(strict=True)
+              scene = source / "scenes" / "main.tscn"
+              assert scene.is_file() and (source / "project.godot").is_file()
+              assert not any(p.is_symlink() for p in source.rglob("*"))
+              original = scene.read_text(encoding="utf-8")
+              assert original.startswith("[gd_scene ") and "uid=" not in original.splitlines()[0]
+              godot = os.environ["GODOT_EXE"]
+              with tempfile.TemporaryDirectory(prefix="prism-uid-probe-") as tmp:
+                  root = Path(tmp)
+                  pcks = {}
+                  for variant in ("original", "explicit_uid"):
+                      for index in (1, 2):
+                          project = root / f"{variant}-{index}"
+                          shutil.copytree(source, project, ignore=shutil.ignore_patterns(".godot", ".git", "dist"))
+                          if variant == "explicit_uid":
+                              target_scene = project / "scenes" / "main.tscn"
+                              text = target_scene.read_text(encoding="utf-8")
+                              text = text.replace("format=3]", 'format=3 uid="uid://bfr6q7h5c3e1s"]', 1)
+                              assert text != original and "uid=" in text.splitlines()[0]
+                              target_scene.write_text(text, encoding="utf-8")
+                          target = root / f"{variant}-{index}.exe"
+                          for cmd in (
+                              [godot, "--headless", "--editor", "--path", str(project), "--import"],
+                              [godot, "--headless", "--path", str(project), "--export-release", "Windows Desktop", str(target)],
+                          ):
+                              run = subprocess.run(cmd, cwd=project, text=True, capture_output=True, timeout=240)
+                              if run.returncode:
+                                  raise RuntimeError(f"Godot {variant}-{index} returned {run.returncode}: {run.stderr[-500:]}")
+                          pck = target.with_suffix(".pck")
+                          if not pck.is_file() or pck.stat().st_size == 0:
+                              raise RuntimeError("Probe Windows export omitted PCK")
+                          pcks[(variant, index)] = pck
+                  for variant in ("original", "explicit_uid"):
+                      comparison = compare_pcks(pcks[(variant, 1)], pcks[(variant, 2)])
+                      receipt[variant] = {
+                          "pck_a_sha256": comparison["factory"]["sha256"],
+                          "pck_b_sha256": comparison["local_reexport"]["sha256"],
+                          "diagnostic_status": comparison["diagnostic_status"],
+                          "changed_count": comparison["changed_count"],
+                          "scene_id_only_drift_candidate": comparison["scene_id_only_drift_candidate"],
+                      }
+              receipt["status"] = "COMPLETED_DIAGNOSTIC_ONLY"
+          except (OSError, ValueError, KeyError, AssertionError, RuntimeError, subprocess.TimeoutExpired) as exc:
+              receipt["status"] = "PROBE_UNAVAILABLE_HOLD"
+              receipt["error_type"] = type(exc).__name__
+              receipt["error"] = str(exc)[:500]
+          output.write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          print("SCENE_UID_PROBE=" + json.dumps(receipt, sort_keys=True))
+          assert receipt["pinned_source_modified"] is False
+          assert receipt["store_submission_allowed"] is False
+          assert receipt["product_e2e"] == "HOLD"
+          PY
+      - name: Check existing Identity is old-source provenance, not revision approval
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method GET '/repos/shihuiarenjinba-png/3d-game-factory/contents/products/prism-route-3d/store/approved-identity.json?ref=e432d94ed0db22878f61f1a8af140d7d7de2288f' > /tmp/prism-old-identity-api.json
+          jq -e --arg sha '9b38b20527b81c85fd03b5373d4a8f8245047115' '.sha == $sha and .encoding == "base64"' /tmp/prism-old-identity-api.json > /dev/null
+          jq -r .content /tmp/prism-old-identity-api.json | base64 -d > /tmp/prism-old-identity.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from prism_identity_provenance import load_record, inspect_historical_identity
+          old=load_record(Path('/tmp/prism-old-identity.json').read_text(encoding='utf-8'))
+          identity_guard=inspect_historical_identity(old)
+          assert identity_guard['status']=='HISTORICAL_IDENTITY_RECORD_CONSISTENT_HOLD_ONLY'
+          assert identity_guard['new_revision_cas_verified'] is False
+          assert identity_guard['partner_center_record_claim_is_live_authenticated'] is False
+          assert identity_guard['store_submission_allowed'] is False
+          job=json.loads(Path('revision-job.json').read_text())
+          result=json.loads(Path('revision-result.json').read_text())
+          assert old['source_sha']==old['verified_source_sha']=='15fdcb52e46e35e6de8e87c55af99719c21e09b9'
+          assert old['source_sha']!=job['source_sha']
+          assert old['store_id'] and old['package_family_name'] and old['package_sid']
+          assert old['package_version_gate']=='HOLD'
+          receipt=dict(schema_version=1,product='Prism Route 3D',slug='prism-route-3d',
+            request_id=job['request_id'],new_revision_source_sha=job['source_sha'],
+            factory_run_id=40901053437,factory_artifact_id=12909162367,
+            factory_export_evidence_status=result['factory_export_evidence']['status'],
+            old_identity_provenance_sha=old['source_sha'],
+            existing_store_id=old['store_id'],
+            registration_type='MSIX_OR_PWA_GAME',
+            partner_center_selection='MSIX or PWA game',
+            identity_rebinding_status='HOLD_PENDING_OFFICIAL_CAS_AND_NEW_SOURCE_BINDING',
+            approved_package_version=None,signed_msix_verified=False,
+            windows_all_auto_intake_verified=False,local_gate='DEFERRED_LOCAL_GATE',
+            product_e2e='HOLD',second_3d_product_allowed=False)
+          receipt['historical_identity_guard']=identity_guard
+          Path('revision-pre-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
+          print('PASS: old Identity reuse reference validated as provenance only; post-Identity HOLD')
+          PY
+      - name: Preserve new revision Provisioner and handoff evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-route-3d-sentinel-revision-provisioner-pre
+          path: |
+            revision-job.json
+            revision-result.json
+            revision-pre-receipt.json
+            revision-pck-diagnostic.json
+            revision-scene-uid-probe.json
+          if-no-files-found: warn
+          retention-days: 7

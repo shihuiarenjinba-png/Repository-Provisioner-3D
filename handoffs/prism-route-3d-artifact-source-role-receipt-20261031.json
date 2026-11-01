@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "verification_kind": "INDEPENDENT_DOWNLOADED_BYTES_SOURCE_ROLE_CLASSIFICATION",
+  "verified_at_jst": "2026-10-31T11:22:53+09:00",
+  "product": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "sentinel_revision": {
+    "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+    "request_id": "3d-prism-route-3d-e432d94ed0db"
+  },
+  "original_revision": {
+    "source_sha": "15fdcb52e46e35e6de8e87c55af99719c21e09b9",
+    "request_id": "3d-prism-route-3d-15fdcb52e46e"
+  },
+  "artifacts": {
+    "sentinel_factory": {
+      "repo": "shihuiarenjinba-png/3d-game-factory",
+      "run_id": 40901053437,
+      "artifact_id": 12909162367,
+      "downloaded_zip_sha256": "dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c",
+      "downloaded_zip_size_bytes": 30880705,
+      "digest_verified_against_github_metadata": true
+    },
+    "original_factory": {
+      "repo": "shihuiarenjinba-png/3d-game-factory",
+      "run_id": 40640951915,
+      "artifact_id": 12795476435,
+      "downloaded_zip_sha256": "76b5fae99491b70514e3152483e0192ac70b2909d8f6eeb9802a640ad12409b0",
+      "downloaded_zip_size_bytes": 30870461,
+      "digest_verified_against_github_metadata": true
+    },
+    "latest_original_pre": {
+      "repo": "shihuiarenjinba-png/Repository-Provisioner-3D",
+      "run_id": 41144895012,
+      "artifact_id": 13019169511,
+      "downloaded_zip_sha256": "3c016f3beec35cb646822a3b1dfe74bd676394e99b1f644f13b036641e1ef592",
+      "downloaded_zip_size_bytes": 4601,
+      "digest_verified_against_github_metadata": true
+    },
+    "latest_original_unsigned_msix": {
+      "repo": "shihuiarenjinba-png/Repository-Provisioner-3D",
+      "run_id": 41144895026,
+      "artifact_id": 13020309226,
+      "downloaded_zip_sha256": "e504e21b86010a3a5adcbce4a24e237f0d5ab3033b344a9ad76d4712aa53b0b9",
+      "downloaded_zip_size_bytes": 31021713,
+      "digest_verified_against_github_metadata": true
+    }
+  },
+  "comparisons": {
+    "latest_pre_source_is_original_not_sentinel": true,
+    "latest_unsigned_msix_source_is_original_not_sentinel": true,
+    "latest_unsigned_msix_embedded_exe_matches_original_factory": true,
+    "latest_unsigned_msix_embedded_pck_matches_original_factory": true,
+    "latest_unsigned_msix_embedded_pck_matches_sentinel_factory": false,
+    "original_and_sentinel_exe_sha256_equal": true,
+    "original_and_sentinel_pck_sha256_equal": false,
+    "latest_unsigned_msix_signature_present": false,
+    "latest_unsigned_msix_fixture_identity": "Example.ThreeD.Fixture",
+    "cross_revision_artifact_promotion_allowed": false
+  },
+  "source_payloads": {
+    "original_pck_sha256": "2cd8af6496cf288bc3e6aef317e472b480f21d2052cbd4ae0cd171e6285ab1ef",
+    "sentinel_pck_sha256": "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03",
+    "shared_godot_exe_sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13"
+  },
+  "decision": {
+    "original_canary_pre": "PASS_BYTES_ORIGINAL_SOURCE_ONLY",
+    "original_unsigned_msix": "PASS_BYTES_QA_ONLY_NOT_STORE_READY",
+    "sentinel_factory": "PASS_BYTES",
+    "sentinel_pre": "NOT_REVERIFIED_BY_THIS_RECEIPT",
+    "sentinel_unsigned_msix": "NOT_REVERIFIED_BY_THIS_RECEIPT",
+    "official_identity_cas": "HOLD",
+    "package_version": "HOLD",
+    "signed_msix": "HOLD",
+    "windows_all_auto_intake": "HOLD",
+    "local_gate": "DEFERRED_LOCAL_GATE",
+    "product_e2e": "HOLD",
+    "second_3d_product_allowed": false
+  },
+  "notes": [
+    "Most recent Provisioner PRE and unsigned MakeAppx workflows on this branch are for the ORIGINAL 15fdcb52 source, not the Sentinel e432d94 revision. Do not select them as Sentinel evidence by recency alone.",
+    "Matching EXE hashes do not prove matching game revisions: the Windows EXE is the shared Godot export template; PCK SHA distinguishes gameplay.",
+    "Previously independently verified Sentinel PRE 12994415760 and Sentinel unsigned MSIX 12994295794 remain distinct historical evidence, not replaced by these latest original-source artifacts.",
+    "No Partner Center operation, official CAS rebinding, package approval, signing, Store submission, or Windows-all-auto intake was performed."
+  ]
+}

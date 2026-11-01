@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "handoff_type": "GAME_3D_USER_ID_REQUEST",
+  "status": "USER_ID_REQUEST_REVERIFY_EXISTING_PRODUCT",
+  "product_name": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "source_repository": "shihuiarenjinba-png/3d-game-factory",
+  "source_branch": "codex/prism-route-trap-tension-20261029",
+  "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "request_id": "3d-prism-route-3d-e432d94ed0db",
+  "factory_build_head": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "factory_run_id": 40901053437,
+  "factory_artifact_id": 12909162367,
+  "packaging_strategy": "GODOT_WINDOWS_EXE_PCK_TO_MAKEAPPX_STANDARD_MSIX",
+  "registration_type": "MSIX_OR_PWA_GAME",
+  "partner_center_selection": "MSIX or PWA game",
+  "partner_center_product_status": "UNRECONCILED_MANUAL_OBSERVATIONS",
+  "allow_local_product_creation": false,
+  "official_identity_fields_required": {
+    "store_id": null,
+    "reserved_display_name": null,
+    "package_identity_name": null,
+    "publisher": null,
+    "publisher_display_name": null,
+    "pfn": null,
+    "package_sid": null
+  },
+  "official_identity_capture_status": "NOT_INDEPENDENTLY_AUTHENTICATED",
+  "historical_reference_not_current_approval": {
+    "store_id": "9N95J2T57B41",
+    "source_sha": "15fdcb52e46e35e6de8e87c55af99719c21e09b9",
+    "identity_reference_commit": "11417b75636ee18816028ffd5221884c4c9a9836",
+    "verified_for_new_source": false
+  },
+  "identity_cas_handoff": {
+    "target": "products/prism-route-3d/store/approved-identity.json",
+    "required_new_source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+    "required_new_request_id": "3d-prism-route-3d-e432d94ed0db",
+    "official_capture_receipt": null,
+    "new_source_cas_receipt": null,
+    "status": "HOLD"
+  },
+  "xbox_title_id_scid_msa_app_id_required": false,
+  "artifact_freshness_recheck_required_before_consumption": true,
+  "approved_package_version": null,
+  "signed_post_identity_msix_sha256": null,
+  "windows_all_auto_intake_receipt": null,
+  "local_windows_gui_gpu_install": "DEFERRED_LOCAL_GATE",
+  "product_e2e": "HOLD",
+  "store_submission_allowed": false
+}

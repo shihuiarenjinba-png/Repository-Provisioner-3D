@@ -10,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 from package_identity_provisioner import HoldError, PackageBuilder, ProductConfig
+from test_godot_pe_structure import fake_pe_x64
 
 
 CONFIG = ProductConfig.load(Path(__file__).resolve().parents[1] / "config.json")
@@ -41,7 +42,8 @@ class ProductScopedGodotTests(unittest.TestCase):
 
             def fake_run(command, cwd, timeout):
                 calls.append((command, cwd, timeout))
-                Path(command[-1]).write_bytes(b"MZnew")
+                if "--export-release" in command:
+                    Path(command[-1]).write_bytes(fake_pe_x64(b"new"))
 
             with patch.dict(os.environ, {"GODOT_EXE": "fake-godot"}):
                 with patch.object(PackageBuilder, "_run", side_effect=fake_run):
@@ -50,12 +52,38 @@ class ProductScopedGodotTests(unittest.TestCase):
                     )
 
             self.assertEqual(selected, (output / "candidate.exe").resolve())
-            self.assertEqual(selected.read_bytes(), b"MZnew")
-            self.assertEqual(len(calls), 1)
-            self.assertEqual(calls[0][0][3], str(project))
-            self.assertEqual(calls[0][1], project)
-            self.assertEqual(calls[0][0][-1], str(output / "candidate.exe"))
+            self.assertEqual(selected.read_bytes(), fake_pe_x64(b"new"))
+            self.assertEqual(len(calls), 2)
+            self.assertIn("--import", calls[0][0])
+            self.assertEqual(calls[1][0][3], str(project))
+            self.assertEqual(calls[1][1], project)
+            self.assertEqual(calls[1][0][-1], str(output / "candidate.exe"))
             self.assertEqual(selected.suffix, ".exe")  # Not a Store-ready MSIX.
+
+    def test_unrelated_output_exe_cannot_replace_current_godot_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "factory"
+            make_project(source, "sample-product")
+            output = root / "artifacts"
+            output.mkdir()
+            unrelated = output / "unrelated.exe"
+            unrelated.write_bytes(b"MZ-unrelated")
+            # An unrelated artifact can have a later mtime than the new export.
+            os.utime(unrelated, (4102444800, 4102444800))
+
+            def fake_run(command, cwd, timeout):
+                if "--export-release" in command:
+                    Path(command[-1]).write_bytes(fake_pe_x64(b"-current"))
+
+            with patch.dict(os.environ, {"GODOT_EXE": "fake-godot"}), patch.object(
+                PackageBuilder, "_run", side_effect=fake_run
+            ):
+                selected = PackageBuilder().build(
+                    SimpleNamespace(slug="sample-product"), source, output, CONFIG
+                )
+            self.assertEqual(selected, (output / "candidate.exe").resolve())
+            self.assertEqual(selected.read_bytes(), fake_pe_x64(b"-current"))
 
     def test_missing_product_does_not_export_factory_root(self):
         with tempfile.TemporaryDirectory() as tmp:

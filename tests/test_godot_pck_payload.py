@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from package_identity_provisioner import HoldError, PackageBuilder
+from test_godot_pe_structure import fake_pe_x64
 
 
 class GodotPckPayloadTests(unittest.TestCase):
@@ -27,7 +28,7 @@ class GodotPckPayloadTests(unittest.TestCase):
     def build(self, project: Path, output: Path, *, exe=True, pck=False, empty_pck=False):
         def fake_export(_command, _cwd, _timeout):
             if exe:
-                (output / "candidate.exe").write_bytes(b"MZ-candidate")
+                (output / "candidate.exe").write_bytes(fake_pe_x64(b"-candidate"))
             if pck:
                 (output / "candidate.pck").write_bytes(b"" if empty_pck else b"GDPC-resources")
         with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
@@ -53,17 +54,72 @@ class GodotPckPayloadTests(unittest.TestCase):
             self.build(project, output, pck=True)
             self.assertTrue((output / "candidate.pck").is_file())
 
+    def test_external_pck_with_wrong_magic_is_hold(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, output = self.make_project(Path(tmp))
+            def fake_export(_command, _cwd, _timeout):
+                (output / "candidate.exe").write_bytes(fake_pe_x64(b"-candidate"))
+                (output / "candidate.pck").write_bytes(b"NOT_A_GODOT_PACK")
+            with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
+                PackageBuilder, "_run", side_effect=fake_export
+            ):
+                with self.assertRaisesRegex(HoldError, "PCK.*header"):
+                    PackageBuilder()._build_godot(project, output)
+
     def test_embedded_pck_allows_exe_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             project, output = self.make_project(Path(tmp), embed=True)
             self.build(project, output)
             self.assertTrue((output / "candidate.exe").is_file())
 
+    def test_stale_exe_cannot_pass_successful_noop_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, output = self.make_project(Path(tmp), embed=True)
+            (output / "candidate.exe").write_bytes(b"MZ-old-export")
+            with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
+                PackageBuilder, "_run", return_value=None
+            ):
+                with self.assertRaisesRegex(HoldError, "nonempty executable"):
+                    PackageBuilder()._build_godot(project, output)
+
+    def test_stale_external_pck_cannot_pass_new_exe_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, output = self.make_project(Path(tmp))
+            (output / "candidate.pck").write_bytes(b"GDPC-old-export")
+            with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
+                PackageBuilder, "_run",
+                side_effect=lambda *_: (output / "candidate.exe").write_bytes(fake_pe_x64(b"-new-export"))
+            ):
+                with self.assertRaisesRegex(HoldError, "candidate.pck"):
+                    PackageBuilder()._build_godot(project, output)
+
     def test_missing_exe_is_hold_even_with_pck(self):
         with tempfile.TemporaryDirectory() as tmp:
             project, output = self.make_project(Path(tmp))
             with self.assertRaisesRegex(HoldError, "nonempty executable"):
                 self.build(project, output, exe=False, pck=True)
+
+
+    def test_non_windows_exe_magic_is_hold_after_export(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, output = self.make_project(Path(tmp))
+            def fake_export(_command, _cwd, _timeout):
+                (output / "candidate.exe").write_bytes(b"NOT_A_WINDOWS_EXE")
+                (output / "candidate.pck").write_bytes(b"GDPC-resources")
+            with patch.dict(os.environ, {"GODOT_EXE": "godot-mock"}), patch.object(
+                PackageBuilder, "_run", side_effect=fake_export
+            ):
+                with self.assertRaisesRegex(HoldError, "MZ header"):
+                    PackageBuilder()._build_godot(project, output)
+
+    def test_non_windows_exe_magic_is_hold_at_inspection(self):
+        from package_identity_provisioner import inspect_package
+        with tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "candidate.exe"
+            exe.write_bytes(b"NOT_A_WINDOWS_EXE")
+            exe.with_suffix(".pck").write_bytes(b"GDPC-resources")
+            with self.assertRaisesRegex(HoldError, "MZ header"):
+                inspect_package(exe, godot_export=True)
 
 
 if __name__ == "__main__":
