@@ -262,6 +262,25 @@ class PrismRevisionByteTests(unittest.TestCase):
         with self.assertRaisesRegex(RevisionHandoffError, "fixture manifest mismatch"):
             self.verify(h, blobs)
 
+    def test_extra_unsigned_qa_capabilities_rejected_even_with_rehashed_zip(self):
+        # A forged QA MSIX cannot acquire network access or another restricted
+        # capability while retaining the fixture's successful byte receipt.
+        for extra in (
+            b'<Capability Name="internetClient"/>',
+            b'<rescap:Capability Name="runFullTrust"/>',
+        ):
+            with self.subTest(extra=extra):
+                h, blobs = self.fixture()
+                def alter(entries):
+                    original = entries["AppxManifest.xml"]
+                    self.assertIn(b"</Capabilities>", original)
+                    entries["AppxManifest.xml"] = original.replace(
+                        b"</Capabilities>", extra + b"</Capabilities>", 1)
+                self._rewrite_qa_msix_with_consistent_outer_hashes(h, blobs, alter)
+                with self.assertRaisesRegex(
+                        RevisionHandoffError, "fixture capabilities mismatch"):
+                    self.verify(h, blobs)
+
     def test_fixture_version_drift_rejected_despite_consistent_hashes(self):
         h, blobs = self.fixture()
         def alter(entries):
