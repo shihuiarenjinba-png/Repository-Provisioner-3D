@@ -44,6 +44,24 @@ class SentinelUserIdRequestTests(unittest.TestCase):
         self.assertEqual(result["product_e2e"], "HOLD")
         self.assertFalse(result["store_submission_allowed"])
 
+    def test_committed_user_id_request_matches_generator(self):
+        # The handoff consumed by the Windows lane must not silently drift
+        # from the pinned source/request or acquire invented Identity fields.
+        materialized = (
+            Path(__file__).resolve().parents[1]
+            / "handoffs/prism-route-3d-sentinel-user-id-request-20261101-1127.json"
+        )
+        with materialized.open(encoding="utf-8") as stream:
+            actual = json.load(stream, object_pairs_hook=_reject_duplicate_keys)
+        expected = build_user_id_request(self.pinned)
+        self.assertEqual(actual, expected)
+        self.assertTrue(all(value is None for value in actual["official_identity_fields_required"].values()))
+        self.assertEqual(actual["identity_cas_handoff"]["status"], "HOLD")
+        self.assertIsNone(actual["approved_package_version"])
+        self.assertIsNone(actual["signed_post_identity_msix_sha256"])
+        self.assertIsNone(actual["windows_all_auto_intake_receipt"])
+        self.assertFalse(actual["store_submission_allowed"])
+
     def test_historical_identity_cannot_masquerade_as_new_revision(self):
         bad = copy.deepcopy(self.pinned)
         bad["source_sha"] = bad["immutable_original_provenance"]["source_sha"]
