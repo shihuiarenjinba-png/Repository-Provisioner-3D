@@ -21,7 +21,7 @@ def require(ok, message):
     if not ok:
         raise RebindError(message)
 
-def make_check_only(receipt, handoff, capture=None, live_artifact=None):
+def make_check_only(receipt, handoff, capture=None, live_artifact=None, comparison_reference=None):
     """Fail closed on drift. Return a machine-readable HOLD, never an approval."""
     try:
         factory = check_factory(receipt, handoff)
@@ -54,6 +54,21 @@ def make_check_only(receipt, handoff, capture=None, live_artifact=None):
         preflight = check_identity(flat, capture)
     except PreflightError as exc:
         raise RebindError("Identity capture: " + str(exc)) from exc
+    # A second independently supplied UI record can expose PFN/Publisher drift.
+    # Neither input is authenticated by this process; even exact equality is HOLD.
+    if comparison_reference is not None:
+        require(type(capture) is dict and type(comparison_reference) is dict,
+                "comparison reference requires a capture")
+        require(comparison_reference.get("reference_origin") == "partner_center_ui" and
+                type(comparison_reference.get("reference_id")) is str and
+                bool(comparison_reference["reference_id"].strip()),
+                "missing independent UI reference provenance")
+        for key in ("store_id", "reserved_display_name", "package_identity_name",
+                    "publisher", "publisher_display_name", "pfn", "package_sid"):
+            val = comparison_reference.get(key)
+            require(type(val) is str and bool(val.strip()) and
+                    type(capture.get(key)) is str and capture[key] == val,
+                    "UI reference mismatch: " + key)
     require(preflight["official_identity_cas_verified"] is False and
             preflight["store_submission_allowed"] is False, "unauthorized CAS claim")
     return {
@@ -83,6 +98,7 @@ def make_check_only(receipt, handoff, capture=None, live_artifact=None):
             "Publisher", "Publisher Display Name", "PFN", "Package SID",
             "capture reference",
         ],
+        "identity_fields_compared_to_reference": comparison_reference is not None,
         "identity_capture_structurally_correlated":
             preflight["identity_fields_structurally_correlated"],
         "status": preflight["status"],
@@ -103,11 +119,13 @@ def main():
     parser.add_argument("--handoff", default="handoffs/prism-sentinel-qa-consumer-20261102.json")
     parser.add_argument("--capture", help="Optional UI capture JSON; never grants CAS")
     parser.add_argument("--live-artifact", help="Optional fresh GitHub artifact metadata JSON")
+    parser.add_argument("--comparison-reference", help="Second UI reference for exact PFN/Publisher check; never CAS")
     args = parser.parse_args()
     def load(path):
         return json.loads(Path(path).read_text(encoding="utf-8")) if path else None
     print(json.dumps(make_check_only(load(args.receipt), load(args.handoff),
-                                     load(args.capture), load(args.live_artifact)),
+                                     load(args.capture), load(args.live_artifact),
+                                     load(args.comparison_reference)),
                      ensure_ascii=False, sort_keys=True, indent=2))
 
 if __name__ == "__main__":
