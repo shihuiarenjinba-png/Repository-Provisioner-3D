@@ -152,7 +152,7 @@ def _verify_unsigned_qa_fixture_manifest(archive):
     if len(identities) != 1 or len(applications) != 1:
         raise RevisionHandoffError("unsigned QA fixture manifest mismatch")
     identity, application = identities[0], applications[0]
-    capability = root.find(f"{{{ns}}}Capabilities/{{{rescap}}}Capability")
+    # A fixture with an extra network/restricted capability must never be\n    # certified as the deliberately minimal offline unsigned QA package.\n    sections = root.findall(f"{{{ns}}}Capabilities")\n    capabilities = list(sections[0]) if len(sections) == 1 else []\n    if (len(capabilities) != 1\n            or capabilities[0].tag != f"{{{rescap}}}Capability"\n            or capabilities[0].attrib != {"Name": "runFullTrust"}):\n        raise RevisionHandoffError("unsigned QA fixture capabilities mismatch")
     if (identity is None or identity.get("Name") != "Example.ThreeD.Fixture"
             or identity.get("Publisher") != "CN=Offline QA Fixture"
             or identity.get("Version") != "1.0.0.0"
@@ -160,7 +160,7 @@ def _verify_unsigned_qa_fixture_manifest(archive):
             or application is None
             or application.get("Executable") != r"Game\game.exe"
             or application.get("EntryPoint") != "Windows.FullTrustApplication"
-            or capability is None or capability.get("Name") != "runFullTrust"):
+            ):
         raise RevisionHandoffError("unsigned QA fixture manifest mismatch")
     return True
 
