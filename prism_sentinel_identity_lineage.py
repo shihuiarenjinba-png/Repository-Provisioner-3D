@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from prism_20261101_source_gate import ANCHORS
 
 SENTINEL_SOURCE = "e432d94ed0db22878f61f1a8af140d7d7de2288f"
 SENTINEL_REQUEST = "3d-prism-route-3d-e432d94ed0db"
@@ -38,7 +39,13 @@ def inspect_lineage(request, inherited):
     """Validate source lineage; a historical reviewed=True is never Sentinel approval."""
     if not isinstance(request, dict) or not isinstance(inherited, dict):
         raise IdentityLineageError("invalid Identity lineage inputs")
-    if (request.get("handoff_type") != "GAME_3D_USER_ID_REQUEST"
+    if (request.get("schema_version") != "1.0"
+            or request.get("handoff_type") != "GAME_3D_USER_ID_REQUEST"
+            or type(request.get("factory_run_id")) is not int
+            or request["factory_run_id"] != ANCHORS["factory"][1]
+            or type(request.get("factory_artifact_id")) is not int
+            or request["factory_artifact_id"] != ANCHORS["factory"][0]
+            or request.get("artifact_freshness_recheck_required_before_consumption") is not True
             or request.get("product_name") != "Prism Route 3D"
             or request.get("slug") != "prism-route-3d"
             or request.get("source_sha") != SENTINEL_SOURCE
@@ -65,6 +72,7 @@ def inspect_lineage(request, inherited):
     historical = request.get("historical_reference_not_current_approval")
     if (not isinstance(historical, dict)
             or historical.get("source_sha") != HISTORICAL_SOURCE
+            or historical.get("identity_reference_commit") != "11417b75636ee18816028ffd5221884c4c9a9836"
             or historical.get("verified_for_new_source") is not False
             or historical.get("store_id") != "9N95J2T57B41"):
         raise IdentityLineageError("historical reference mismatch")
