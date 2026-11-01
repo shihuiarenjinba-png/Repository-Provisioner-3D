@@ -42,6 +42,16 @@ class ArtifactRoleError(ValueError):
     """Artifact is not safely attributable to the requested source revision."""
 
 
+def _no_duplicate_keys(pairs):
+    """Reject ambiguous JSON keys at every depth, including evidence objects."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ArtifactRoleError("duplicate audit JSON key")
+        result[key] = value
+    return result
+
+
 def select_audited_artifact(receipt, *, role, artifact_id, expected_source_sha):
     """Return a HOLD-only historical role receipt, never a live authentication."""
     if not isinstance(receipt, dict):
@@ -150,11 +160,14 @@ def main(argv=None):
     parser.add_argument("--source-sha", required=True)
     args = parser.parse_args(argv)
     try:
-        data = json.loads(args.receipt.read_text(encoding="utf-8"))
+        if not args.receipt.is_file() or args.receipt.stat().st_size > 65536:
+            raise ArtifactRoleError("missing or oversized audit receipt")
+        data = json.loads(args.receipt.read_text(encoding="utf-8"),
+                          object_pairs_hook=_no_duplicate_keys)
         result = select_audited_artifact(data, role=args.role,
                                          artifact_id=args.artifact_id,
                                          expected_source_sha=args.source_sha)
-    except (OSError, ValueError) as exc:
+    except (OSError, UnicodeError, ValueError, TypeError) as exc:
         print(json.dumps({"status": "HOLD", "reason": str(exc),
                           "store_submission_allowed": False}, sort_keys=True))
         return 2
