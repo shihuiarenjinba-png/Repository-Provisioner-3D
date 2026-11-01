@@ -20,6 +20,16 @@ def sample():
         "registration_type": "MSIX_OR_PWA_GAME", "partner_center_selection": "MSIX or PWA game",
         "packaging_strategy": "GODOT_WINDOWS_EXE_PCK_TO_MAKEAPPX_STANDARD_MSIX",
         "allow_local_product_creation": False,
+        "status": "USER_ID_REQUEST_REVERIFY_EXISTING_PRODUCT",
+        "source_repository": "shihuiarenjinba-png/3d-game-factory",
+        "source_branch": "codex/prism-route-trap-tension-20261029",
+        "partner_center_product_status": "UNRECONCILED_MANUAL_OBSERVATIONS",
+        "official_identity_capture_status": "NOT_INDEPENDENTLY_AUTHENTICATED",
+        "approved_package_version": None,
+        "signed_post_identity_msix_sha256": None,
+        "windows_all_auto_intake_receipt": None,
+        "xbox_title_id_scid_msa_app_id_required": False,
+        "local_windows_gui_gpu_install": "DEFERRED_LOCAL_GATE",
         "official_identity_fields_required": {k: None for k in (
             "store_id", "reserved_display_name", "package_identity_name", "publisher",
             "publisher_display_name", "pfn", "package_sid")},
@@ -91,6 +101,35 @@ class IdentityLineageTests(unittest.TestCase):
                 old[field] = value
                 with self.assertRaises(IdentityLineageError):
                     inspect_lineage(req, old)
+
+    def test_fake_package_and_intake_readiness_rejected(self):
+        for field, value in (
+            ("status", "APPROVED"),
+            ("source_branch", "codex/another-game"),
+            ("official_identity_capture_status", "AUTHENTICATED"),
+            ("partner_center_product_status", "CREATED"),
+            ("approved_package_version", "1.0.0.0"),
+            ("signed_post_identity_msix_sha256", "0" * 64),
+            ("windows_all_auto_intake_receipt", {"accepted": True}),
+            ("xbox_title_id_scid_msa_app_id_required", True),
+            ("local_windows_gui_gpu_install", "PASS"),
+        ):
+            with self.subTest(field=field):
+                req, old = sample()
+                req[field] = value
+                with self.assertRaises(IdentityLineageError):
+                    inspect_lineage(req, old)
+
+    def test_real_committed_user_id_request_is_still_hold(self):
+        req_path = Path(__file__).resolve().parents[1] / "handoffs" / (
+            "prism-route-3d-sentinel-user-id-request-20261101-1127.json"
+        )
+        req = _read(req_path)
+        _, inherited = sample()
+        result = inspect_lineage(req, inherited)
+        self.assertEqual(result["status"], "HOLD_HISTORICAL_IDENTITY_NOT_SENTINEL_CAS")
+        self.assertFalse(result["new_source_cas_verified"])
+        self.assertFalse(result["signed_msix_verified"])
 
     def test_duplicate_and_oversized_json_rejected(self):
         with TemporaryDirectory() as tmp:
