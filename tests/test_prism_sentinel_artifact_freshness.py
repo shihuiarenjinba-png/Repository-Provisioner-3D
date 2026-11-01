@@ -5,7 +5,7 @@ import unittest
 
 from prism_20261101_source_gate import ANCHORS, SENTINEL, SENTINEL_REQUEST
 from prism_sentinel_artifact_freshness import (
-    ArtifactFreshnessError, _no_duplicate_keys, validate,
+    ArtifactFreshnessError, WORKFLOW_PROVENANCE, _no_duplicate_keys, validate,
 )
 
 NOW = datetime(2026, 11, 1, 7, 28, tzinfo=timezone.utc)
@@ -15,8 +15,14 @@ def snapshot():
     records = {}
     for role in ("factory", "sentinel_pre", "sentinel_unsigned_qa"):
         artifact_id, run_id, digest, size = ANCHORS[role]
+        name, repo_id, branch, head_sha = WORKFLOW_PROVENANCE[role]
         records[role] = {
-            "id": artifact_id, "workflow_run": {"id": run_id},
+            "id": artifact_id, "name": name,
+            "workflow_run": {
+                "id": run_id, "repository_id": repo_id,
+                "head_repository_id": repo_id,
+                "head_branch": branch, "head_sha": head_sha,
+            },
             "digest": "sha256:" + digest, "size_in_bytes": size,
             "expired": False, "expires_at": "2026-11-04T07:31:03Z",
         }
@@ -57,6 +63,35 @@ class PrismSentinelArtifactFreshnessTests(unittest.TestCase):
         data["artifacts"]["factory"]["workflow_run"]["id"] = 123
         with self.assertRaises(ArtifactFreshnessError):
             validate(data, now=NOW)
+
+    def test_workflow_provenance_fail_closed_for_each_artifact_role(self):
+        # A matching artifact ID/digest is insufficient when a workflow
+        # name, repository, branch or builder/source HEAD is substituted.
+        for role in ("factory", "sentinel_pre", "sentinel_unsigned_qa"):
+            for field, value in (
+                ("name", "unrelated-artifact"),
+                ("repository_id", 0),
+                ("head_repository_id", True),
+                ("head_branch", "main"),
+                ("head_sha", "15fdcb52e46e35e6de8e87c55af99719c21e09b9"),
+            ):
+                with self.subTest(role=role, field=field):
+                    data = snapshot()
+                    if field == "name":
+                        data["artifacts"][role]["name"] = value
+                    else:
+                        data["artifacts"][role]["workflow_run"][field] = value
+                    with self.assertRaisesRegex(ArtifactFreshnessError, "provenance"):
+                        validate(data, now=NOW)
+
+    def test_missing_provenance_is_not_accepted(self):
+        for field in ("repository_id", "head_repository_id",
+                      "head_branch", "head_sha"):
+            with self.subTest(field=field):
+                data = snapshot()
+                del data["artifacts"]["sentinel_pre"]["workflow_run"][field]
+                with self.assertRaisesRegex(ArtifactFreshnessError, "provenance"):
+                    validate(data, now=NOW)
 
     def test_expired_unknown_and_near_expiry_rejected(self):
         for expired in (True, None, "false"):
