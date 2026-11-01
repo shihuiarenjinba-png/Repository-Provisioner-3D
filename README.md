@@ -42,3 +42,24 @@ python provisioner.py --input job.json --output result.json `
 `--factory-run-id` と `--factory-artifact-id` は、受け入れ済み Factory 製品の実際の export run と `godot-3d-factory-export-evidence` Artifact を指定します。GitHub CLI `gh api` は認証済みの GitHub REST API から run と Artifact のメタデータを別々に取得し、Artifact ZIP をダウンロードします。検証器は ZIP の GitHub SHA-256 digest、run 成功状態、`request_id`・`slug`・不変の `source_sha`、別管理の `factory_build_head`、EXE/PCK サイズと SHA-256 を照合します。欠落・不一致・期限切れ・ダウンロード失敗時は **Identity 照会前に HOLD** です。
 
 Identity が未取得でも `factory_export_evidence` に `PRE_IDENTITY_BYTES_CORRELATED` 証拠を保持できます。ただしこの証拠は `POST_IDENTITY_READY`、実製品MSIX、GPU、Windows install、GUI、Store E2E の合格ではありません。120時間ゲートはユーザー承認の Prism Route 3D Canary 1本に限り解除済みです。2本目の3D製品生成は48分監督によるPRE_IDENTITY rotation確認まで禁止です。Partner Centerの製品存在報告は矛盾しており、公式照合前の重複作成は禁止です。
+
+
+## Sentinel revision: machine-readable USER_ID_REQUEST (read-only)
+
+The pinned Sentinel revision is a **new source/request binding**, not an approval
+of the historical Partner Center Identity. Produce the seven-field request for
+the 36-minute Windows/local owner without guessing values or creating a second
+Partner Center product:
+
+```powershell
+python prism_sentinel_user_id_request.py
+```
+
+The JSON output includes the pinned `source_sha`, `request_id`, Factory run
+and artifact IDs, `MSIX_OR_PWA_GAME` / `MSIX or PWA game`, seven **null**
+official Identity fields, and the exact CAS return target. The historical
+Store ID is labeled as an **unverified reference only**. The generator does not
+call Partner Center, write a return file, authenticate Identity/CAS, or approve
+Version, signed MSIX, Windows intake, or Store submission. It can still request
+Identity after an old Artifact expires, but actual artifact consumption must
+revalidate freshness and bytes separately. Any invalid handoff fails closed.
