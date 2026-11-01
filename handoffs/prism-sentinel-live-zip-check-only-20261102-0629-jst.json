@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0",
+  "receipt_type": "PRISM_SENTINEL_LIVE_ZIP_CHECK_ONLY",
+  "verified_at_utc": "2026-11-01T21:29:16Z",
+  "method": "Authenticated GitHub Actions artifact download, independent SHA256 of ZIP and members, CRC, exact member names, manifest and UTC expiry",
+  "source_sha": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "request_id": "3d-prism-route-3d-e432d94ed0db",
+  "factory_build_head": "e432d94ed0db22878f61f1a8af140d7d7de2288f",
+  "factory_run_id": 40901053437,
+  "factory_artifact_id": 12909162367,
+  "archive_size_bytes": 30880705,
+  "archive_sha256": "dc60f397e002bddf63a8f64ec263dd241a3eb8c4f7fd6e6595d115a9f273ae9c",
+  "archive_expires_at_utc": "2026-11-05T15:24:12Z",
+  "github_artifact_expired": false,
+  "members": {
+    "candidate.exe": {
+      "size_bytes": 84214784,
+      "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13"
+    },
+    "candidate.pck": {
+      "size_bytes": 71568,
+      "sha256": "3e92b7b6e336a0ab40419448b79f330cf00e0cba4d6bb9ec864ba70b89ecdb03"
+    },
+    "export-evidence.json": {
+      "size_bytes": 672,
+      "sha256": "c55db8c276919cc9792c02f2423ecc6e7b249ad83772e9e256de1fd412208103"
+    }
+  },
+  "zip_crc_pass": true,
+  "archive_bytes_verified_this_run": true,
+  "manifest_correlated": true,
+  "source_request_build_head_correlated": true,
+  "legacy_pck_sha256": "2cd8af6496cf288bc3e6aef317e472b480f21d2052cbd4ae0cd171e6285ab1ef",
+  "legacy_pck_matches_sentinel": false,
+  "registration_type": "MSIX_OR_PWA_GAME",
+  "partner_center_selection": "MSIX or PWA game",
+  "historical_store_id_reference_only": "9N95J2T57B41",
+  "historical_identity_commit_reference_only": "11417b75636ee18816028ffd5221884c4c9a9836",
+  "historical_identity_rebound_to_sentinel": false,
+  "official_identity_cas": "HOLD",
+  "approved_package_version": "HOLD",
+  "signed_product_msix": "HOLD",
+  "unsigned_qa_fixture_is_product": false,
+  "windows_all_auto_intake": "HOLD",
+  "local_windows_gate": "DEFERRED_LOCAL_GATE",
+  "product_e2e": "HOLD",
+  "store_submission_allowed": false,
+  "second_3d_product_allowed": false,
+  "identity_return_target": "products/prism-route-3d/store/approved-identity.json",
+  "next_owner": "36-minute Windows/E2E official UI/CAS lane",
+  "limitations": "This receipt verifies real Factory ZIP and GitHub artifact metadata; it does not authenticate official Partner Center UI, approve new Sentinel CAS, sign a product MSIX, prove Windows intake or GUI/GPU behavior."
+}
