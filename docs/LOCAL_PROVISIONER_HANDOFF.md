@@ -2,6 +2,35 @@
 
 更新日: 2026-10-27 (Asia/Tokyo)
 
+## 2026-10-28: Prism Route 3D Identity-only CAS return
+
+- GitHub PRE_IDENTITY queue、物理Windowsのexact source snapshot、認証済み
+  Partner Center UI captureを同じrequest/source SHAへbindingした。
+- Partner Center既存製品はexact 1件。Store ID、予約名、Identity Name、
+  Publisher、Publisher Display Name、PFN、Package SIDは手動referenceと完全一致。
+- Package VersionはPartner Center Identityから推測せず、
+  `package_version_gate=HOLD` のまま別工程へ分離した。
+- `identity_only_return.py` は新しいCASを持たず、既存
+  `GitHubReturnClient` の `expectedHeadOid` single-writerを使用する。
+- 実返却先:
+  `products/prism-route-3d/store/approved-identity.json`。
+- Factory返却commit:
+  `11417b75636ee18816028ffd5221884c4c9a9836`。
+- 同一requestの実再実行は `EXISTING_VERIFIED`。二重commitなし。
+- Store提出、package upload、certification、価格変更はいずれも0件。
+
+```powershell
+py -3 identity_only_return.py `
+  --ledger C:\path\to\Windows-all-auto\ops\active_e2e_handoff.json `
+  --operator-job $env:LOCALAPPDATA\FactoryIdentityWorker\secure\3d-prism-route-3d-15fdcb52e46e\operator-job-v2.json `
+  --official-identity $env:LOCALAPPDATA\FactoryIdentityWorker\secure\prism-route-3d\official-identity.json `
+  --output C:\qa\prism-route-3d\identity-return.json `
+  --apply
+```
+
+次工程は `PACKAGE_VERSION_GATE`。Version、正式MSIX、署名、Windows GPU/GUI
+QAが未完了なので、Store-readyやE2E完成とは判定しない。
+
 ## 2026-10-28: Identity前のGodot export証拠（最新コード契約）
 
 - 外部PCK (`candidate.pck`) が必要なexportでは、存在・非symlink・`GDPC`ヘッダーを検査し、偽装したPCKを拒否する。
