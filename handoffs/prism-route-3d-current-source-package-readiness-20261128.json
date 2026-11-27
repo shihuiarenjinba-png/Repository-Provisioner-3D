@@ -1,0 +1,235 @@
+{
+  "schema_version": 1,
+  "receipt_type": "GAME_3D_CURRENT_SOURCE_PACKAGE_READINESS",
+  "verified_on": "2026-11-28",
+  "product": "Prism Route 3D",
+  "slug": "prism-route-3d",
+  "source": {
+    "repository": "shihuiarenjinba-png/3d-game-factory",
+    "branch": "codex/prism-tower1-hud-clearance-fix-20261103",
+    "sha": "b03ce7b16c3f75c04fe20fdda224c45849eeba0d",
+    "factory_build_head": "b03ce7b16c3f75c04fe20fdda224c45849eeba0d",
+    "request_id": "3d-prism-route-3d-b03ce7b16c3f",
+    "product_manifest_blob_sha": "e7eb4b03108d01d2ffa00a03b758ce244c6138ed",
+    "export_preset_blob_sha": "719a72f615dbb466cf9037cd867a61af6ad84402",
+    "product_type": "GAME_3D",
+    "product_manifest_status": "CANDIDATE_PENDING_CURRENT_RUN_REAL_PCK_FIRST30S_AND_GUI_QA"
+  },
+  "factory_export": {
+    "workflow_run_id": 43794658086,
+    "workflow_name": "Prism Route 3D — real Godot 4.3 Factory export",
+    "artifact_id": 14797309778,
+    "artifact_name": "godot-3d-factory-export-evidence",
+    "archive_size_bytes": 37795977,
+    "archive_sha256": "e2573b9ab11afde6ab6ec7417c23438581620a08bb9dcff76d792a2b5592ccac",
+    "original_expires_at_utc": "2026-11-30T07:32:37Z",
+    "members": {
+      "candidate.exe": {
+        "size_bytes": 84214784,
+        "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13"
+      },
+      "candidate.pck": {
+        "size_bytes": 6987584,
+        "sha256": "b7abc0f9caf2e505a1dcaf834b4cb897d8f00df4060c31708914e8bb4f3d5666"
+      },
+      "export-evidence.json": {
+        "size_bytes": 680,
+        "sha256": "442d2c9070e017adf1c0ceaa96ba607f470c0f147176671f8a844122aca4d5bd"
+      }
+    },
+    "export_manifest": {
+      "source_repository": "shihuiarenjinba-png/3d-game-factory",
+      "source_branch": "codex/prism-tower1-hud-clearance-fix-20261103",
+      "source_sha": "b03ce7b16c3f75c04fe20fdda224c45849eeba0d",
+      "factory_build_head": "b03ce7b16c3f75c04fe20fdda224c45849eeba0d",
+      "request_id": "3d-prism-route-3d-b03ce7b16c3f",
+      "exe_path": "candidate.exe",
+      "pck_path": "candidate.pck"
+    },
+    "exact_bytes_reverified_by_qa": true,
+    "durable_exact_bytes_copy": {
+      "repository": "shihuiarenjinba-png/3d-build-qa",
+      "pull_request": 20,
+      "run_id": 46071743617,
+      "artifact_id": 15233410594,
+      "artifact_name": "prism-pr25-factory-and-physical-handoff-custody-qa-only",
+      "size_bytes": 167283608,
+      "sha256": "a02ed2a03ef37ebdb4dc46ad31c84148da3949fb1e55c5b0e0ae3627769f1b9f",
+      "expires_at_utc": "2026-12-27T21:39:58Z",
+      "contents": "original Factory ZIP byte-for-byte, Factory metadata, exact-byte custody receipt, package-layout plan, original PR19 physical handoff ZIP, physical-handoff custody receipt",
+      "status": "EXACT_FACTORY_AND_HANDOFF_BYTES_PRESERVED_QA_ONLY"
+    }
+  },
+  "independent_qa": {
+    "repository": "shihuiarenjinba-png/3d-build-qa",
+    "pr_number": 19,
+    "exact_head": "9b90bfc9dfa6ded9699c3f22df45390be909dae8",
+    "cloud_workflows": {
+      "total": 8,
+      "success": 8,
+      "status": "SUCCESS_CLOUD_QA_ONLY"
+    },
+    "physical_windows_qa": {
+      "sessions_completed": 0,
+      "sessions_required": 6,
+      "screenshots_captured": 0,
+      "screenshots_required": 36,
+      "status": "HOLD_NOT_PHYSICAL_QA"
+    },
+    "physical_handoff_artifact": {
+      "run_id": 45461731033,
+      "artifact_id": 14952074847,
+      "name": "prism-pr25-exact-binary-physical-qa-handoff-not-store",
+      "size_bytes": 129481721,
+      "sha256": "35ae3ea873e0b122fe2cb138a170cd233cf89c7c81e8fed4262139d366a4c4c6",
+      "expires_at_utc": "2026-12-01T18:39:16Z"
+    }
+  },
+  "package_preflight": {
+    "repository": "shihuiarenjinba-png/3d-build-qa",
+    "pr_number": 20,
+    "exact_head": "31032210446e5de7376a82698d854d25a51da2f9",
+    "base_pr19_head": "9b90bfc9dfa6ded9699c3f22df45390be909dae8",
+    "run_id": 46071743617,
+    "workflows": {
+      "total": 9,
+      "success": 9,
+      "status": "SUCCESS_QA_ONLY"
+    },
+    "makeappx_capability_artifact": {
+      "artifact_id": 15233068292,
+      "name": "prism-makeappx-capability-readonly-qa-only",
+      "size_bytes": 732,
+      "sha256": "aaf107e7dee1d07da923d57dfeae435ce198ef5581e158e1c86765df261a7f87",
+      "expires_at_utc": "2026-12-27T21:40:06Z"
+    }
+  },
+  "registration": {
+    "type": "MSIX_OR_PWA_GAME",
+    "partner_center_selection": "MSIX or PWA game",
+    "gdk_route_allowed": false
+  },
+  "package_layout": {
+    "manifest_path": "AppxManifest.xml",
+    "application_executable": "VFS/ProgramFilesX64/PrismRoute3D/candidate.exe",
+    "external_pck_sidecar": "VFS/ProgramFilesX64/PrismRoute3D/candidate.pck",
+    "payload_mapping": [
+      {
+        "source_member": "candidate.exe",
+        "package_path": "VFS/ProgramFilesX64/PrismRoute3D/candidate.exe",
+        "size_bytes": 84214784,
+        "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13"
+      },
+      {
+        "source_member": "candidate.pck",
+        "package_path": "VFS/ProgramFilesX64/PrismRoute3D/candidate.pck",
+        "size_bytes": 6987584,
+        "sha256": "b7abc0f9caf2e505a1dcaf834b4cb897d8f00df4060c31708914e8bb4f3d5666"
+      }
+    ],
+    "required_store_assets": [
+      {
+        "role": "properties_logo",
+        "package_path": "Assets/StoreLogo.png",
+        "source_path": null,
+        "status": "HOLD_OFFICIAL_ASSET_SOURCE_NOT_PRESENT"
+      },
+      {
+        "role": "square_150x150_logo",
+        "package_path": "Assets/Square150x150Logo.png",
+        "source_path": null,
+        "status": "HOLD_OFFICIAL_ASSET_SOURCE_NOT_PRESENT"
+      },
+      {
+        "role": "square_44x44_logo",
+        "package_path": "Assets/Square44x44Logo.png",
+        "source_path": null,
+        "status": "HOLD_OFFICIAL_ASSET_SOURCE_NOT_PRESENT"
+      }
+    ],
+    "asset_source_checks": [
+      {
+        "path": "products/prism-route-3d/assets",
+        "result": "NOT_FOUND_404"
+      },
+      {
+        "path": "products/prism-route-3d/store/assets",
+        "result": "NOT_FOUND_404"
+      }
+    ],
+    "official_store_assets_status": "HOLD_OFFICIAL_ASSET_SOURCE_NOT_PRESENT",
+    "source_manifest": {
+      "store_identity": null,
+      "registration_type": "MSIX_OR_PWA_GAME",
+      "packaging_strategy": "GODOT_WINDOWS_EXE_PCK_MAKEAPPX_MSIX",
+      "package_version_gate": "HOLD"
+    }
+  },
+  "makeappx_capability": {
+    "scope": "READ_ONLY_QA_CAPABILITY_ONLY",
+    "runner_os": "Microsoft Windows NT 10.0.26100.0",
+    "runner_image": "win25-vs2026",
+    "sdk_root": "C:\\Program Files (x86)\\Windows Kits\\10\\bin",
+    "executable_path": "C:\\Program Files (x86)\\Windows Kits\\10\\bin\\10.0.26100.0\\x64\\MakeAppx.exe",
+    "file_version": "10.0.26100.9457 (WinBuild.160101.0800)",
+    "sha256": "58d5e69fd0322f960afbe34afed0eda66a5d001811ee838d1c7165130c3d55e5",
+    "authenticode_status": "Valid",
+    "signer_subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+    "help_probe_invoked": true,
+    "help_probe_exit_code": 1,
+    "help_probe_contains_pack_usage": true,
+    "makeappx_pack_invoked": false,
+    "package_file_created": false,
+    "product_msix_created": false,
+    "status": "MAKEAPPX_CAPABILITY_VERIFIED_READ_ONLY"
+  },
+  "identity_gate": {
+    "status": "HOLD_CURRENT_SOURCE_IDENTITY_REBIND_REQUIRED",
+    "historical_identity_source_sha": "15fdcb52e46e35e6de8e87c55af99719c21e09b9",
+    "historical_identity_is_current_source": false,
+    "current_source_sha": "b03ce7b16c3f75c04fe20fdda224c45849eeba0d",
+    "identity_rebind_or_cas_performed": false,
+    "central_36_identity_ledger_modified": false,
+    "store_identity_in_product_manifest": null
+  },
+  "version_gate": {
+    "authoritative_package_version": null,
+    "status": "HOLD_MISSING_AUTHORITATIVE_FOUR_PART_VERSION",
+    "synthetic_or_self_asserted_version_accepted": false,
+    "export_file_version": "",
+    "export_product_version": "",
+    "product_manifest_package_version_gate": "HOLD",
+    "approved_identity_package_version_gate": "HOLD"
+  },
+  "physical_qa": {
+    "status": "DEFERRED_LOCAL_GATE",
+    "completed_sessions": 0,
+    "required_sessions": 6,
+    "captured_screenshots": 0,
+    "required_screenshots": 36,
+    "cloud_ci_counts_as_physical_qa": false
+  },
+  "controls": {
+    "package_build_allowed": false,
+    "makeappx_pack_invoked": false,
+    "product_msix_created": false,
+    "product_msix_signed": false,
+    "identity_cas_invoked": false,
+    "package_version_written": false,
+    "central_36_ledger_modified": false,
+    "partner_center_written": false,
+    "store_submission_allowed": false,
+    "store_published": false,
+    "sale_ready": false,
+    "second_3d_product_allowed": false
+  },
+  "limitations": [
+    "This is an append-only Provisioner handoff and fail-closed contract, not a product package.",
+    "The exact original Factory ZIP and PR19 physical handoff ZIP are preserved byte-for-byte in the QA-owned 30-day artifact; the original Factory artifact itself retains its 2026-11-30T07:32:37Z expiry.",
+    "MakeAppx was discovered, hashed and signature-checked; only its usage/help probe ran. No pack operation ran.",
+    "Official Store image assets are absent from the checked current product paths.",
+    "The historical Identity provenance is not current-source Identity binding.",
+    "No authoritative four-part Package Version was supplied.",
+    "Physical Windows QA remains 0/6 sessions and 0/36 screenshots."
+  ]
+}
