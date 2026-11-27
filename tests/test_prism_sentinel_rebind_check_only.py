@@ -2,6 +2,7 @@
 import copy
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 import unittest
 
 from prism_sentinel_rebind_check_only import make_check_only, RebindError
@@ -48,7 +49,10 @@ class TestSentinelRebindCheckOnly(unittest.TestCase):
 
     def test_synthetic_complete_capture_is_not_official_cas(self):
         r, h = self.fresh()
-        result = make_check_only(r, h, self.synthetic_capture(), self.live())
+        result = make_check_only(
+            r, h, self.synthetic_capture(), self.live(),
+            now_utc=datetime(2026, 11, 2, 12, 0, tzinfo=timezone.utc),
+        )
         self.assertEqual(result["status"], "HOLD_NEW_REVISION_CAS_AUTHENTICATION_REQUIRED")
         self.assertTrue(result["identity_capture_structurally_correlated"])
         self.assertTrue(result["factory_artifact_live_metadata_checked"])
@@ -56,6 +60,14 @@ class TestSentinelRebindCheckOnly(unittest.TestCase):
                     "signed_product_msix", "windows_all_auto_intake", "product_e2e"):
             self.assertEqual(result[key], "HOLD")
         self.assertFalse(result["store_submission_allowed"])
+
+    def test_live_artifact_is_rejected_after_its_expiry(self):
+        r, h = self.fresh()
+        with self.assertRaisesRegex(RebindError, "Factory artifact expired by UTC deadline"):
+            make_check_only(
+                r, h, self.synthetic_capture(), self.live(),
+                now_utc=datetime(2026, 11, 6, 12, 0, tzinfo=timezone.utc),
+            )
 
     def test_independent_ui_reference_pfn_publisher_and_identity_name(self):
         r, h = self.fresh()
