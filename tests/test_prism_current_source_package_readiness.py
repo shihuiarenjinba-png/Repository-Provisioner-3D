@@ -57,11 +57,13 @@ class CurrentSourcePackageReadinessTests(unittest.TestCase):
                 with self.assertRaises(HandoffError):
                     validate(bad)
 
-    def test_old_pr22_pr23_artifact_cannot_replace_current_factory_artifact(self):
-        bad = copy.deepcopy(self.handoff)
-        bad["factory_export"]["artifact_id"] = 13180284133
-        with self.assertRaisesRegex(HandoffError, "Factory artifact mismatch"):
-            validate(bad)
+    def test_old_pr22_pr23_artifacts_cannot_replace_current_factory_artifact(self):
+        for artifact_id in (13180284133, 13185037028):
+            with self.subTest(artifact_id=artifact_id):
+                bad = copy.deepcopy(self.handoff)
+                bad["factory_export"]["artifact_id"] = artifact_id
+                with self.assertRaisesRegex(HandoffError, "Factory artifact mismatch"):
+                    validate(bad)
 
     def test_wrong_factory_zip_or_member_digest_is_rejected(self):
         bad_zip = copy.deepcopy(self.handoff)
