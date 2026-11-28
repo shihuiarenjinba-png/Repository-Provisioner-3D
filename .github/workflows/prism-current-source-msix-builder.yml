@@ -1,0 +1,170 @@
+name: Prism current-source MSIX builder (fixture-only by default)
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Fixture validation only, or manually approved real unsigned product MSIX"
+        required: true
+        type: choice
+        options:
+          - fixture-only
+          - real-product-msix
+        default: fixture-only
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  fixture-only:
+    if: github.event_name == 'pull_request' || inputs.mode == 'fixture-only'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run synthetic negative and fail-closed package tests
+        shell: pwsh
+        run: python -m unittest discover -s tests -p 'test_prism_current_source_msix_builder.py' -v
+      - name: Declare fixture-only boundary
+        shell: pwsh
+        run: |
+          Write-Host "FIXTURE_ONLY_PASS: synthetic test bytes are not product evidence."
+          Write-Host "No Factory payload download, MakeAppx pack, product MSIX, signing, Identity CAS, Version write, Partner Center write, or Store submission ran."
+
+  real-product-msix:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'real-product-msix'
+    environment: prism-route-3d-msix-release
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      PRISM_MSIX_BUILD_APPROVED: ${{ vars.PRISM_MSIX_BUILD_APPROVED }}
+      PRISM_QA_ARTIFACT_READ_TOKEN: ${{ secrets.PRISM_QA_ARTIFACT_READ_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Require protected environment approval and read-only QA artifact token
+        shell: pwsh
+        run: |
+          if ($env:PRISM_MSIX_BUILD_APPROVED -cne "true") {
+            throw "HOLD: protected environment variable PRISM_MSIX_BUILD_APPROVED=true is required."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:PRISM_QA_ARTIFACT_READ_TOKEN)) {
+            throw "HOLD: PRISM_QA_ARTIFACT_READ_TOKEN with actions:read on 3d-build-qa is required."
+          }
+      - name: Download the QA-owned exact-byte custody artifact
+        shell: pwsh
+        run: |
+          $destination = Join-Path $env:RUNNER_TEMP "prism-current-source-custody.zip"
+          $headers = @{
+            Authorization = "Bearer $env:PRISM_QA_ARTIFACT_READ_TOKEN"
+            Accept = "application/vnd.github+json"
+          }
+          $params = @{
+            Uri = "https://api.github.com/repos/shihuiarenjinba-png/3d-build-qa/actions/artifacts/15233410594/zip"
+            Headers = $headers
+            OutFile = $destination
+          }
+          Invoke-WebRequest @params
+          $item = Get-Item -LiteralPath $destination
+          if ($item.Length -ne 167283608) { throw "HOLD: custody ZIP size mismatch." }
+          $digest = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($digest -ne "a02ed2a03ef37ebdb4dc46ad31c84148da3949fb1e55c5b0e0ae3627769f1b9f") {
+            throw "HOLD: custody ZIP SHA256 mismatch."
+          }
+      - name: Recover and reverify original Factory EXE/PCK/manifest bytes
+        shell: pwsh
+        run: |
+          $env:CUSTODY_ZIP = Join-Path $env:RUNNER_TEMP "prism-current-source-custody.zip"
+          $env:PAYLOAD_DIR = Join-Path $env:RUNNER_TEMP "prism-current-source-payload"
+          $extractScript = Join-Path $env:RUNNER_TEMP "extract_factory.py"
+          @'
+          import json, os
+          from prism_current_source_msix_builder import extract_factory_payload_from_custody
+          result = extract_factory_payload_from_custody(
+              os.environ["CUSTODY_ZIP"], os.environ["PAYLOAD_DIR"]
+          )
+          print(json.dumps(result, sort_keys=True))
+          '@ | Set-Content -LiteralPath $extractScript -Encoding utf8
+          python $extractScript
+      - name: Require all official current-source approval files
+        shell: pwsh
+        run: |
+          $approval = "approvals/prism-route-3d/current-source-b03ce7b1"
+          $required = @(
+            "$approval/identity-return.json",
+            "$approval/version-return.json",
+            "$approval/package-binding.json",
+            "$approval/asset-approval.json",
+            "$approval/AppxManifest.xml",
+            "$approval/Assets/StoreLogo.png",
+            "$approval/Assets/Square150x150Logo.png",
+            "$approval/Assets/Square44x44Logo.png"
+          )
+          $missing = @($required | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "MISSING_APPROVAL_INPUT: $_" }
+            throw "HOLD: official Identity, authoritative Version, package binding, and all user-approved Store PNGs are required."
+          }
+      - name: Verify read-only MakeAppx capability (no pack invocation)
+        shell: pwsh
+        run: |
+          $makeappx = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\MakeAppx.exe"
+          if (-not (Test-Path -LiteralPath $makeappx -PathType Leaf)) { throw "HOLD: pinned MakeAppx path is absent." }
+          $signature = Get-AuthenticodeSignature -LiteralPath $makeappx
+          $hash = (Get-FileHash -LiteralPath $makeappx -Algorithm SHA256).Hash.ToLowerInvariant()
+          $version = (Get-Item -LiteralPath $makeappx).VersionInfo.FileVersion
+          $helpText = (& $makeappx 2>&1 | Out-String)
+          $helpExit = $LASTEXITCODE
+          $receipt = @{
+            path = (Resolve-Path -LiteralPath $makeappx).Path
+            file_version = $version
+            sha256 = $hash
+            authenticode_status = $signature.Status.ToString()
+            signer_subject = if ($signature.SignerCertificate) { $signature.SignerCertificate.Subject } else { "" }
+            help_probe_invoked = $true
+            help_probe_exit_code = $helpExit
+            help_probe_contains_pack_usage = ($helpText -match "(?i)\bpack\b")
+            makeappx_pack_invoked = $false
+            product_msix_created = $false
+          }
+          $receipt | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP "makeappx-capability.json") -Encoding utf8
+      - name: Build unsigned product MSIX only after all three approvals pass
+        shell: pwsh
+        run: |
+          $approval = "approvals/prism-route-3d/current-source-b03ce7b1"
+          $payload = Join-Path $env:RUNNER_TEMP "prism-current-source-payload/factory-payload"
+          $builderArgs = @(
+            "--handoff", "handoffs/prism-route-3d-current-source-package-readiness-20261128.json",
+            "--identity-return", "$approval/identity-return.json",
+            "--version-return", "$approval/version-return.json",
+            "--package-binding", "$approval/package-binding.json",
+            "--asset-approval", "$approval/asset-approval.json",
+            "--asset-root", "$approval",
+            "--manifest", "$approval/AppxManifest.xml",
+            "--exe", "$payload/candidate.exe",
+            "--pck", "$payload/candidate.pck",
+            "--makeappx-receipt", (Join-Path $env:RUNNER_TEMP "makeappx-capability.json"),
+            "--makeappx", "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\MakeAppx.exe",
+            "--output", "dist/prism-route-3d-unsigned.msix",
+            "--build"
+          )
+          python prism_current_source_msix_builder.py @builderArgs
+      - name: Preserve unsigned package for separate review only
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prism-route-3d-unsigned-product-msix-not-store
+          path: dist/prism-route-3d-unsigned.msix
+          if-no-files-found: error
+          retention-days: 7
