@@ -87,6 +87,26 @@ class CurrentSourceMsixBuilderTests(unittest.TestCase):
             "package_version": "1.2.3.4",
             "identity": copy.deepcopy(self.identity),
         }
+        self.identity_capture_receipt = {
+            "receipt_type": "PRISM_CURRENT_SOURCE_IDENTITY_CAPTURE",
+            "authority": "MICROSOFT_PARTNER_CENTER_OFFICIAL_UI",
+            "official_ui_capture_verified": True,
+            "identity_rebind_status": "VERIFIED_CURRENT_SOURCE_CAS",
+            "source_sha": builder.SOURCE_SHA,
+            "request_id": builder.REQUEST_ID,
+            "factory_artifact_id": builder.FACTORY_ARTIFACT_ID,
+            "exe_sha256": builder.EXE_SHA256,
+            "pck_sha256": builder.PCK_SHA256,
+            "captured_at_utc": "2026-11-28T00:00:00Z",
+            "operator_attested": True,
+            "operator": "test operator",
+            "identity": copy.deepcopy(self.identity),
+            "package_version": "1.2.3.4",
+        }
+        self.identity_capture_raw = json.dumps(
+            self.identity_capture_receipt, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        self.identity_return["capture_receipt_sha256"] = digest(self.identity_capture_raw)
         self.identity_raw = json.dumps(
             self.identity_return, sort_keys=True, separators=(",", ":")
         ).encode("utf-8")
@@ -190,6 +210,8 @@ class CurrentSourceMsixBuilderTests(unittest.TestCase):
             "handoff": self.handoff,
             "identity_return": self.identity_return,
             "identity_raw": self.identity_raw,
+            "identity_capture_receipt": self.identity_capture_receipt,
+            "identity_capture_raw": self.identity_capture_raw,
             "version_return": self.version_return,
             "package_binding": self.binding,
             "asset_approval": self.asset_approval,
@@ -224,6 +246,20 @@ class CurrentSourceMsixBuilderTests(unittest.TestCase):
         bad["source_sha"] = "e432d94ed0db22878f61f1a8af140d7d7de2288f"
         with self.assertRaisesRegex(builder.BuildGateError, "Identity source SHA"):
             self.validate(identity_return=bad)
+
+    def test_missing_or_drifted_official_capture_receipt_is_rejected(self):
+        with self.assertRaisesRegex(builder.BuildGateError, "capture receipt is missing"):
+            self.validate(identity_capture_receipt=None)
+        bad = copy.deepcopy(self.identity_capture_receipt)
+        bad["source_sha"] = "e432d94ed0db22878f61f1a8af140d7d7de2288f"
+        bad_raw = json.dumps(bad, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        with self.assertRaisesRegex(builder.BuildGateError, "capture receipt binding mismatch"):
+            self.validate(identity_capture_receipt=bad, identity_capture_raw=bad_raw)
+
+    def test_identity_capture_receipt_bytes_must_match_pinned_sha(self):
+        bad_raw = self.identity_capture_raw + b"tampered"
+        with self.assertRaisesRegex(builder.BuildGateError, "capture receipt bytes do not match"):
+            self.validate(identity_capture_raw=bad_raw)
 
     def test_source_or_request_mismatch_is_rejected(self):
         bad_version = copy.deepcopy(self.version_return)
