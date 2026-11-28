@@ -253,8 +253,10 @@ class CurrentSourceMsixBuilderTests(unittest.TestCase):
         bad = copy.deepcopy(self.identity_capture_receipt)
         bad["source_sha"] = "e432d94ed0db22878f61f1a8af140d7d7de2288f"
         bad_raw = json.dumps(bad, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        bad_identity = copy.deepcopy(self.identity_return)
+        bad_identity["capture_receipt_sha256"] = digest(bad_raw)
         with self.assertRaisesRegex(builder.BuildGateError, "capture receipt binding mismatch"):
-            self.validate(identity_capture_receipt=bad, identity_capture_raw=bad_raw)
+            self.validate(identity_return=bad_identity, identity_capture_receipt=bad, identity_capture_raw=bad_raw)
 
     def test_identity_capture_receipt_bytes_must_match_pinned_sha(self):
         bad_raw = self.identity_capture_raw + b"tampered"
