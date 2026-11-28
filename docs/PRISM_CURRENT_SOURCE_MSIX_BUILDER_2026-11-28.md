@@ -72,6 +72,7 @@ Expected approval bundle path (not present in this PR):
 approvals/prism-route-3d/current-source-b03ce7b1/
 
 - identity-return.json
+- identity-capture-receipt.json (raw-byte SHA256 bound by identity-return.json)
 - version-return.json
 - package-binding.json
 - asset-approval.json
