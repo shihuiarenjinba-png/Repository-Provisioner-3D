@@ -375,6 +375,7 @@ class CurrentSourceMsixBuilderTests(unittest.TestCase):
             patch.object(builder, "EXPECTED_CUSTODY_SIZE", len(custody_bytes)),
             patch.object(builder, "QA_CUSTODY_ARTIFACT_SHA256", digest(custody_bytes)),
             patch.object(builder, "FACTORY_ZIP_SHA256", digest(factory_bytes)),
+            patch.object(builder, "EXPECTED_FACTORY_ZIP_SIZE", len(factory_bytes)),
             patch.object(builder, "EXPECTED_EXPORT_MANIFEST_SIZE", len(export_manifest)),
             patch.object(builder, "EXPORT_MANIFEST_SHA256", digest(export_manifest)),
         ):
