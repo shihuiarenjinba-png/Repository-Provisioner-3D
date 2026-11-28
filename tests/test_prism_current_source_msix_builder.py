@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import io
 import json
 import struct
 import tempfile
 import unittest
+import zipfile
 import zlib
 from pathlib import Path
 from unittest.mock import patch
@@ -351,6 +353,39 @@ class CurrentSourceMsixBuilderTests(unittest.TestCase):
     def test_fixture_validation_does_not_invoke_makeappx(self):
         result = self.validate()
         self.assertFalse(result["product_msix_created"])
+
+    def test_custody_extractor_recovers_only_exact_factory_bytes(self):
+        export_manifest = b"synthetic-export-evidence-fixture"
+        factory_buffer = io.BytesIO()
+        with zipfile.ZipFile(factory_buffer, "w", compression=zipfile.ZIP_STORED) as archive:
+            archive.writestr("candidate.exe", self.exe_bytes)
+            archive.writestr("candidate.pck", self.pck_bytes)
+            archive.writestr("export-evidence.json", export_manifest)
+        factory_bytes = factory_buffer.getvalue()
+
+        custody_buffer = io.BytesIO()
+        with zipfile.ZipFile(custody_buffer, "w", compression=zipfile.ZIP_STORED) as archive:
+            archive.writestr("original-factory-export.zip", factory_bytes)
+            archive.writestr("custody-receipt.json", b'{"status":"fixture-only"}')
+        custody_bytes = custody_buffer.getvalue()
+        custody_path = self.root / "custody.zip"
+        custody_path.write_bytes(custody_bytes)
+
+        with (
+            patch.object(builder, "EXPECTED_CUSTODY_SIZE", len(custody_bytes)),
+            patch.object(builder, "QA_CUSTODY_ARTIFACT_SHA256", digest(custody_bytes)),
+            patch.object(builder, "FACTORY_ZIP_SHA256", digest(factory_bytes)),
+            patch.object(builder, "EXPECTED_EXPORT_MANIFEST_SIZE", len(export_manifest)),
+            patch.object(builder, "EXPORT_MANIFEST_SHA256", digest(export_manifest)),
+        ):
+            result = builder.extract_factory_payload_from_custody(
+                custody_path, self.root / "extracted"
+            )
+
+        self.assertEqual(Path(result["candidate_exe"]).read_bytes(), self.exe_bytes)
+        self.assertEqual(Path(result["candidate_pck"]).read_bytes(), self.pck_bytes)
+        self.assertEqual(Path(result["export_manifest"]).read_bytes(), export_manifest)
+        self.assertEqual(result["factory_zip_sha256"], digest(factory_bytes))
 
     def test_real_build_requires_protected_approval_before_makeappx(self):
         validated = self.validate()
