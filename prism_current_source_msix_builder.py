@@ -531,20 +531,39 @@ def _verify_unsigned_msix(path: Path, validated: dict) -> None:
 
 def build_unsigned_msix(
     *,
-    validated_inputs: dict,
+    handoff: dict,
+    identity_return: dict,
+    identity_raw: bytes,
+    version_return: dict,
+    package_binding: dict,
+    asset_approval: dict,
+    asset_root: str | Path,
+    manifest_path: str | Path,
     exe_path: str | Path,
     pck_path: str | Path,
-    asset_root: str | Path,
+    makeappx_receipt: dict,
     makeappx_path: str | Path,
     output_path: str | Path,
     environment: dict | None = None,
 ) -> dict:
-    """Invoke MakeAppx only after all gates and explicit environment approval."""
+    """Revalidate all raw approvals, then invoke MakeAppx only after explicit approval."""
     env = os.environ if environment is None else environment
     _require(env.get("PRISM_MSIX_BUILD_APPROVED") == "true",
              "real product build requires protected PRISM_MSIX_BUILD_APPROVED=true")
-    _require(validated_inputs.get("status") == "ALL_PRODUCT_MSIX_BUILD_GATES_VALIDATED_NO_PACKAGE_CREATED",
-             "validated build-gate receipt is missing")
+    validated_inputs = validate_build_inputs(
+        handoff=handoff,
+        identity_return=identity_return,
+        identity_raw=identity_raw,
+        version_return=version_return,
+        package_binding=package_binding,
+        asset_approval=asset_approval,
+        asset_root=asset_root,
+        manifest_path=manifest_path,
+        exe_path=exe_path,
+        pck_path=pck_path,
+        makeappx_receipt=makeappx_receipt,
+        makeappx_path=makeappx_path,
+    )
     output = Path(output_path).resolve()
     _require(not output.exists(), "refusing to overwrite an existing MSIX")
     output.parent.mkdir(parents=True, exist_ok=True)
