@@ -40,6 +40,7 @@ REGISTRATION_TYPE = "MSIX_OR_PWA_GAME"
 EXPECTED_EXE_SIZE = 84214784
 EXPECTED_PCK_SIZE = 6987584
 EXPECTED_CUSTODY_SIZE = 167283608
+EXPECTED_FACTORY_ZIP_SIZE = 37795977
 EXPECTED_EXPORT_MANIFEST_SIZE = 680
 MAKEAPPX_PATH = (
     r"C:\Program Files (x86)\Windows Kits\10\bin"
@@ -494,7 +495,7 @@ def extract_factory_payload_from_custody(
     except (OSError, zipfile.BadZipFile) as exc:
         raise BuildGateError("QA custody artifact ZIP is unreadable") from exc
     _require(nested is not None, "original exact Factory ZIP not found inside QA custody")
-    _require(nested.stat().st_size == 37795977
+    _require(nested.stat().st_size == EXPECTED_FACTORY_ZIP_SIZE
              and sha256_file(nested) == FACTORY_ZIP_SHA256,
              "recovered Factory ZIP size or SHA256 mismatch")
     extracted = destination / "factory-payload"
