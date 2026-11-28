@@ -103,6 +103,7 @@ jobs:
           $approval = "approvals/prism-route-3d/current-source-b03ce7b1"
           $required = @(
             "$approval/identity-return.json",
+            "$approval/identity-capture-receipt.json",
             "$approval/version-return.json",
             "$approval/package-binding.json",
             "$approval/asset-approval.json",
@@ -147,6 +148,7 @@ jobs:
           $builderArgs = @(
             "--handoff", "handoffs/prism-route-3d-current-source-package-readiness-20261128.json",
             "--identity-return", "$approval/identity-return.json",
+            "--identity-capture-receipt", "$approval/identity-capture-receipt.json",
             "--version-return", "$approval/version-return.json",
             "--package-binding", "$approval/package-binding.json",
             "--asset-approval", "$approval/asset-approval.json",
