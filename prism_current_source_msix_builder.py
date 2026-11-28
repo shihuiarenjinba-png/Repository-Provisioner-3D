@@ -150,7 +150,7 @@ def _validate_version(value: str) -> str:
     return value
 
 
-def _validate_identity(identity_return: dict) -> dict:
+def _validate_identity(identity_return: dict, capture_receipt: dict, capture_raw: bytes) -> dict:
     _require(type(identity_return) is dict, "official Identity return is missing")
     _require(identity_return.get("schema_version") == 1, "Identity return schema mismatch")
     _require(identity_return.get("authority") == "MICROSOFT_PARTNER_CENTER_OFFICIAL_UI",
@@ -171,8 +171,33 @@ def _validate_identity(identity_return: dict) -> dict:
              "Identity return EXE SHA does not match current Factory bytes")
     _require(identity_return.get("pck_sha256") == PCK_SHA256,
              "Identity return PCK SHA does not match current Factory bytes")
-    _require(SHA256_RE.fullmatch(str(identity_return.get("capture_receipt_sha256", ""))) is not None,
-             "official Identity capture receipt SHA is missing")
+    capture_digest = identity_return.get("capture_receipt_sha256")
+    _require(SHA256_RE.fullmatch(str(capture_digest or "")) is not None
+             and capture_digest == sha256_bytes(capture_raw),
+             "official Identity capture receipt bytes do not match the pinned SHA256")
+    _require(type(capture_receipt) is dict
+             and capture_receipt.get("receipt_type") == "PRISM_CURRENT_SOURCE_IDENTITY_CAPTURE",
+             "current-source Identity capture receipt is missing")
+    _require(capture_receipt.get("authority") == "MICROSOFT_PARTNER_CENTER_OFFICIAL_UI"
+             and capture_receipt.get("official_ui_capture_verified") is True
+             and capture_receipt.get("identity_rebind_status") == "VERIFIED_CURRENT_SOURCE_CAS",
+             "official current-source UI/CAS receipt is not verified")
+    for field, expected in (
+        ("source_sha", SOURCE_SHA),
+        ("request_id", REQUEST_ID),
+        ("factory_artifact_id", FACTORY_ARTIFACT_ID),
+        ("exe_sha256", EXE_SHA256),
+        ("pck_sha256", PCK_SHA256),
+    ):
+        _require(capture_receipt.get(field) == expected,
+                 "Identity capture receipt binding mismatch: " + field)
+    _utc_timestamp(capture_receipt.get("captured_at_utc"), "Identity capture captured_at_utc")
+    _require(capture_receipt.get("operator_attested") is True
+             and capture_receipt.get("operator") == identity_return.get("operator"),
+             "Identity capture operator attestation mismatch")
+    _require(capture_receipt.get("identity") == identity_return.get("identity")
+             and capture_receipt.get("package_version") == identity_return.get("package_version"),
+             "Identity capture fields differ from the normalized official return")
     _require(identity_return.get("operator_attested") is True,
              "operator attestation for official Identity is missing")
     _require(type(identity_return.get("operator")) is str and len(identity_return["operator"].strip()) >= 3,
@@ -389,6 +414,8 @@ def validate_build_inputs(
     handoff: dict,
     identity_return: dict,
     identity_raw: bytes,
+    identity_capture_receipt: dict,
+    identity_capture_raw: bytes,
     version_return: dict,
     package_binding: dict,
     asset_approval: dict,
@@ -404,7 +431,7 @@ def validate_build_inputs(
         validate_current_handoff(handoff)
     except (ValueError, TypeError, KeyError) as exc:
         raise BuildGateError("current-source handoff validation failed") from exc
-    identity = _validate_identity(identity_return)
+    identity = _validate_identity(identity_return, identity_capture_receipt, identity_capture_raw)
     version = _validate_version_return(version_return, identity_return, identity_raw, identity)
     _validate_binding(package_binding, identity, version)
     exe = _safe_file(exe_path, "candidate.exe")
@@ -534,6 +561,8 @@ def build_unsigned_msix(
     handoff: dict,
     identity_return: dict,
     identity_raw: bytes,
+    identity_capture_receipt: dict,
+    identity_capture_raw: bytes,
     version_return: dict,
     package_binding: dict,
     asset_approval: dict,
@@ -554,6 +583,8 @@ def build_unsigned_msix(
         handoff=handoff,
         identity_return=identity_return,
         identity_raw=identity_raw,
+        identity_capture_receipt=identity_capture_receipt,
+        identity_capture_raw=identity_capture_raw,
         version_return=version_return,
         package_binding=package_binding,
         asset_approval=asset_approval,
@@ -608,6 +639,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--handoff", default="handoffs/prism-route-3d-current-source-package-readiness-20261128.json")
     parser.add_argument("--identity-return", required=True)
+    parser.add_argument("--identity-capture-receipt", required=True)
     parser.add_argument("--version-return", required=True)
     parser.add_argument("--package-binding", required=True)
     parser.add_argument("--asset-approval", required=True)
@@ -624,6 +656,7 @@ def main(argv=None) -> int:
     try:
         handoff, _ = load_json(args.handoff)
         identity_return, identity_raw = load_json(args.identity_return)
+        identity_capture_receipt, identity_capture_raw = load_json(args.identity_capture_receipt)
         version_return, _ = load_json(args.version_return)
         package_binding, _ = load_json(args.package_binding)
         asset_approval, _ = load_json(args.asset_approval)
@@ -632,6 +665,8 @@ def main(argv=None) -> int:
             handoff=handoff,
             identity_return=identity_return,
             identity_raw=identity_raw,
+            identity_capture_receipt=identity_capture_receipt,
+            identity_capture_raw=identity_capture_raw,
             version_return=version_return,
             package_binding=package_binding,
             asset_approval=asset_approval,
@@ -648,6 +683,8 @@ def main(argv=None) -> int:
                 handoff=handoff,
                 identity_return=identity_return,
                 identity_raw=identity_raw,
+                identity_capture_receipt=identity_capture_receipt,
+                identity_capture_raw=identity_capture_raw,
                 version_return=version_return,
                 package_binding=package_binding,
                 asset_approval=asset_approval,
