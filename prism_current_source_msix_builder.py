@@ -29,6 +29,7 @@ from prism_current_source_package_readiness import (
     FACTORY_ZIP_SHA256,
     EXE_SHA256,
     PCK_SHA256,
+    EXPORT_MANIFEST_SHA256,
     QA_CUSTODY_ARTIFACT_ID,
     QA_CUSTODY_ARTIFACT_SHA256,
     validate as validate_current_handoff,
@@ -39,6 +40,7 @@ REGISTRATION_TYPE = "MSIX_OR_PWA_GAME"
 EXPECTED_EXE_SIZE = 84214784
 EXPECTED_PCK_SIZE = 6987584
 EXPECTED_CUSTODY_SIZE = 167283608
+EXPECTED_EXPORT_MANIFEST_SIZE = 680
 MAKEAPPX_PATH = (
     r"C:\Program Files (x86)\Windows Kits\10\bin"
     r"\10.0.26100.0\x64\MakeAppx.exe"
@@ -505,8 +507,7 @@ def extract_factory_payload_from_custody(
             for name, size, digest in (
                 ("candidate.exe", EXPECTED_EXE_SIZE, EXE_SHA256),
                 ("candidate.pck", EXPECTED_PCK_SIZE, PCK_SHA256),
-                ("export-evidence.json", 680,
-                 "442d2c9070e017adf1c0ceaa96ba607f470c0f147176671f8a844122aca4d5bd"),
+                ("export-evidence.json", EXPECTED_EXPORT_MANIFEST_SIZE, EXPORT_MANIFEST_SHA256),
             ):
                 data = archive.read(name)
                 _require(len(data) == size and sha256_bytes(data) == digest,
