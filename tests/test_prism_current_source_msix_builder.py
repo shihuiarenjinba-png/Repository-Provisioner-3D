@@ -319,11 +319,7 @@ class CurrentSourceMsixBuilderTests(unittest.TestCase):
         with patch.object(builder.subprocess, "run") as run:
             with self.assertRaisesRegex(builder.BuildGateError, "PRISM_MSIX_BUILD_APPROVED"):
                 builder.build_unsigned_msix(
-                    validated_inputs=validated,
-                    exe_path=self.exe,
-                    pck_path=self.pck,
-                    asset_root=self.asset_root,
-                    makeappx_path=self.makeappx,
+                    **self.inputs(),
                     output_path=self.root / "dist" / "product.msix",
                     environment={},
                 )
