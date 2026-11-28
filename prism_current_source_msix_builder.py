@@ -645,10 +645,17 @@ def main(argv=None) -> int:
         result = validated
         if args.build:
             result = build_unsigned_msix(
-                validated_inputs=validated,
+                handoff=handoff,
+                identity_return=identity_return,
+                identity_raw=identity_raw,
+                version_return=version_return,
+                package_binding=package_binding,
+                asset_approval=asset_approval,
+                asset_root=args.asset_root,
+                manifest_path=args.manifest,
                 exe_path=args.exe,
                 pck_path=args.pck,
-                asset_root=args.asset_root,
+                makeappx_receipt=makeappx_receipt,
                 makeappx_path=args.makeappx,
                 output_path=args.output,
             )
