@@ -354,6 +354,20 @@ class CurrentSourceMsixBuilderTests(unittest.TestCase):
         result = self.validate()
         self.assertFalse(result["product_msix_created"])
 
+    def test_real_build_revalidates_raw_identity_before_makeappx(self):
+        values = self.inputs()
+        bad_identity = copy.deepcopy(self.identity_return)
+        bad_identity["source_sha"] = "e432d94ed0db22878f61f1a8af140d7d7de2288f"
+        values["identity_return"] = bad_identity
+        with patch.object(builder.subprocess, "run") as run:
+            with self.assertRaisesRegex(builder.BuildGateError, "Identity source SHA"):
+                builder.build_unsigned_msix(
+                    **values,
+                    output_path=self.root / "dist" / "product.msix",
+                    environment={"PRISM_MSIX_BUILD_APPROVED": "true"},
+                )
+            run.assert_not_called()
+
     def test_custody_extractor_recovers_only_exact_factory_bytes(self):
         export_manifest = b"synthetic-export-evidence-fixture"
         factory_buffer = io.BytesIO()
